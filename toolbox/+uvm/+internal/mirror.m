@@ -7,16 +7,16 @@ function mirrorDir = mirror(url, fetched, fetch)
     mirrorDir = fullfile(uvm.internal.home(), 'git', regexprep(url, '[^A-Za-z0-9._-]', '_'));
     if ~isfolder(mirrorDir)
         uvm.internal.say('Cloning %s', url);
-        parent = fileparts(mirrorDir);
-        if ~isfolder(parent)
-            mkdir(parent);
+        staging = uvm.internal.stagingFolder(mirrorDir);
+        try
+            uvm.internal.git('clone', '--mirror', '--quiet', url, staging);
+        catch err
+            if isfolder(staging)
+                rmdir(staging, 's');
+            end
+            rethrow(err);
         end
-        partial = [mirrorDir '.partial'];
-        if isfolder(partial)
-            rmdir(partial, 's');
-        end
-        uvm.internal.git('clone', '--mirror', '--quiet', url, partial);
-        movefile(partial, mirrorDir);
+        uvm.internal.commitFolder(staging, mirrorDir);
     elseif fetch && ~(~isempty(fetched) && fetched.isKey(url))
         uvm.internal.say('Fetching %s', url);
         uvm.internal.git('--git-dir', mirrorDir, 'fetch', '--prune', '--quiet', 'origin');

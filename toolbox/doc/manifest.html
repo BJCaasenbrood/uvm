@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>uvm.json Reference</title>
+<link rel="stylesheet" href="uvm.css">
+</head>
+<body>
+
+<div class="nav"><a href="index.html">uvm</a> &rsaquo; uvm.json Reference</div>
+<h1>uvm.json Reference</h1>
+
+<p><code>uvm.json</code> describes a project or package. The same file is used for both:
+when your project is installed as someone else's dependency, uvm reads its
+<code>uvm.json</code> to find its paths and its own dependencies.</p>
+
+<pre><code>{
+  "name": "my_analysis",
+  "version": "0.1.0",
+  "matlab": "&gt;=R2023a",
+  "toolboxes": ["Signal Processing Toolbox"],
+  "paths": [".", "plotting"],
+  "dependencies": {
+    "signal_utils": "^1.2",
+    "daq_tools": { "git": "git@git.company.local:lab/daq_tools.git", "tag": "v0.4.0" }
+  },
+  "registries": [
+    { "name": "work", "url": "git@git.company.local:matlab/registry.git" }
+  ]
+}</code></pre>
+
+<p>All fields are optional. Unknown fields are kept when uvm rewrites the file.</p>
+
+<h2>Fields</h2>
+<table>
+<tr><th>Field</th><th>Default</th><th>Meaning</th></tr>
+<tr><td><code>name</code></td><td>folder name</td>
+    <td>Name of the project or package.</td></tr>
+<tr><td><code>version</code></td><td><code>""</code></td>
+    <td>Version of this package. Used when a dependency points at a branch or commit
+    rather than a version tag.</td></tr>
+<tr><td><code>matlab</code></td><td>any</td>
+    <td>Supported MATLAB releases, e.g. <code>"&gt;=R2023a"</code>. See
+    <a href="versions.html#release">release constraints</a>. Violations give a warning.</td></tr>
+<tr><td><code>toolboxes</code></td><td><code>[]</code></td>
+    <td>MathWorks toolboxes the code needs, by the name <code>ver</code> shows, e.g.
+    <code>"Optimization Toolbox"</code>. uvm cannot install them, but warns if they are
+    missing.</td></tr>
+<tr><td><code>paths</code></td><td><code>["."]</code></td>
+    <td>Folders, relative to the package root, that go on the path. Use this when code
+    lives in e.g. <code>src/</code>. Paths may not leave the package.</td></tr>
+<tr><td><code>dependencies</code></td><td><code>{}</code></td>
+    <td>Packages this one needs; see below.</td></tr>
+<tr><td><code>registries</code></td><td><code>[]</code></td>
+    <td>Registries to search before the ones in your own config, so a team project
+    works without per-machine setup. See <a href="registries.html">Registries</a>.</td></tr>
+</table>
+
+<h2>Dependencies</h2>
+<p>Keys are package names. Names must be valid MATLAB identifiers (letters, digits and
+underscores, starting with a letter), like <code>signal_utils</code>.</p>
+
+<h3>From a registry</h3>
+<p>A string is a <a href="versions.html">version constraint</a>; the git URL comes from a
+registry:</p>
+<pre><code>"signal_utils": "^1.2"
+"plot_tools": "*"</code></pre>
+
+<h3>From a git repository</h3>
+<p>An object with a <code>git</code> URL, plus at most one of <code>tag</code>,
+<code>branch</code> or <code>rev</code>, or a <code>version</code> constraint:</p>
+<table>
+<tr><th>Form</th><th>Resolves to</th></tr>
+<tr><td><code>{"git": URL, "version": "^1.2"}</code></td><td>Newest matching version tag. This is the default for <code>{"git": URL}</code> (any version).</td></tr>
+<tr><td><code>{"git": URL, "tag": "v0.4.0"}</code></td><td>That tag.</td></tr>
+<tr><td><code>{"git": URL, "branch": "main"}</code></td><td>The branch head, locked until <code>--upgrade</code>.</td></tr>
+<tr><td><code>{"git": URL, "rev": "3f9c2a1"}</code></td><td>That commit.</td></tr>
+</table>
+<p>URLs can be anything git accepts: <code>git@host:group/repo.git</code>,
+<code>https://host/group/repo.git</code>, <code>ssh://...</code>, or a local folder.
+Relative folders in your project's <code>uvm.json</code> are relative to the project
+root.</p>
+
+<div class="note">Edit <code>uvm.json</code> by hand whenever you like. The next
+<code>uvm sync</code> notices the change and re-resolves.</div>
+
+<h2>uvm.lock</h2>
+<p>The lock is JSON too, but is written by uvm; don't edit it. For each package it
+records the name, version, source URL, the tag/branch/commit asked for, the exact
+commit installed, and the package's paths, toolboxes, release constraint and direct
+dependencies.</p>
+
+</body>
+</html>

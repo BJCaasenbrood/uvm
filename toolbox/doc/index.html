@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>uvm</title>
+<link rel="stylesheet" href="uvm.css">
+</head>
+<body>
+
+<h1>uvm &mdash; project and package manager for MATLAB</h1>
+
+<p><code>uvm</code> gives every MATLAB project its own list of dependencies, resolves
+them to exact versions, and puts exactly those packages on the path. You declare
+what you need in <code>uvm.json</code>, <code>uvm</code> records what it picked in
+<code>uvm.lock</code>, and anyone who checks out the project gets the same code with a
+single <code>uvm sync</code>.</p>
+
+<p>Packages are ordinary git repositories, and versions are git tags. A git server you
+already have &mdash; GitLab, Bitbucket, Gitea, or GitHub &mdash; is all the infrastructure
+you need.</p>
+
+<pre><code>&gt;&gt; uvm init
+&gt;&gt; uvm add signal_utils
+&gt;&gt; uvm sync
+&gt;&gt; uvm run analysis.m</code></pre>
+
+<h2>Contents</h2>
+<table>
+<tr><td><a href="getting_started.html">Getting Started</a></td>
+    <td>Install uvm, create a project and add your first dependency.</td></tr>
+<tr><td><a href="projects.html">Projects, Locking and Activation</a></td>
+    <td>What happens during <code>uvm sync</code>, which files to commit, and how the path is managed.</td></tr>
+<tr><td><a href="manifest.html">uvm.json Reference</a></td>
+    <td>Every field of the project manifest.</td></tr>
+<tr><td><a href="versions.html">Version Constraints</a></td>
+    <td><code>^1.2</code>, <code>~1.2</code>, ranges, and MATLAB release constraints.</td></tr>
+<tr><td><a href="registries.html">Registries and Work Servers</a></td>
+    <td>Share packages inside your organization by name.</td></tr>
+<tr><td><a href="publishing.html">Publishing a Package</a></td>
+    <td>Turn a repository into a package others can depend on.</td></tr>
+<tr><td><a href="ci.html">Testing and Continuous Integration</a></td>
+    <td><code>uvm test</code>, frozen locks, and CI pipelines.</td></tr>
+<tr><td><a href="troubleshooting.html">Troubleshooting</a></td>
+    <td>Warnings, errors and how to fix them.</td></tr>
+<tr><td><a href="uvm.html">uvm</a></td>
+    <td>Function reference for every command.</td></tr>
+</table>
+
+<h2>Requirements</h2>
+<ul>
+<li>MATLAB R2023a or newer.</li>
+<li><code>git</code> installed and on the system path. uvm uses the same git you use in
+a terminal, so your SSH keys, credential helpers and proxy settings apply.</li>
+</ul>
+
+</body>
+</html>

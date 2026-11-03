@@ -34,20 +34,20 @@ function extract(p, dest)
                 p.commit, p.name, p.source);
         end
     end
-    parent = fileparts(dest);
-    if ~isfolder(parent)
-        mkdir(parent);
-    end
-    partial = [dest '.partial'];
-    if isfolder(partial)
-        rmdir(partial, 's');
-    end
+    staging = uvm.internal.stagingFolder(dest);
     archive = [tempname '.zip'];
     cleanup = onCleanup(@() deleteIfExists(archive));
-    uvm.internal.git('--git-dir', mirrorDir, 'archive', '--format=zip', '-o', archive, p.commit);
-    mkdir(partial);
-    unzip(archive, partial);
-    movefile(partial, dest);
+    try
+        uvm.internal.git('--git-dir', mirrorDir, 'archive', '--format=zip', '-o', archive, p.commit);
+        mkdir(staging);
+        unzip(archive, staging);
+    catch err
+        if isfolder(staging)
+            rmdir(staging, 's');
+        end
+        rethrow(err);
+    end
+    uvm.internal.commitFolder(staging, dest);
 end
 
 function writeText(file, text)

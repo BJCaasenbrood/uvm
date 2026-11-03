@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Troubleshooting</title>
+<link rel="stylesheet" href="uvm.css">
+</head>
+<body>
+
+<div class="nav"><a href="index.html">uvm</a> &rsaquo; Troubleshooting</div>
+<h1>Troubleshooting</h1>
+
+<p>All uvm messages have identifiers, so you can catch errors with
+<code>try</code>/<code>catch</code> and turn individual warnings off, e.g.
+<code>warning('off', 'uvm:shadowing')</code>.</p>
+
+<h2>Warnings</h2>
+<table>
+<tr><th>Identifier</th><th>Meaning</th><th>What to do</th></tr>
+<tr><td><code>uvm:shadowing</code></td>
+    <td>Two packages (or a package and your project) define a function, script or class with the same name. MATLAB uses whichever is first on the path.</td>
+    <td>Rename, or move the code into a <code>+namespace</code> folder (see <a href="publishing.html">Publishing</a>).</td></tr>
+<tr><td><code>uvm:missingToolbox</code></td>
+    <td>A toolbox listed in some <code>uvm.json</code> is not installed.</td>
+    <td>Install it with the Add-On Explorer, or ask your license administrator.</td></tr>
+<tr><td><code>uvm:matlabRelease</code></td>
+    <td>The running MATLAB is outside a package's <code>matlab</code> range.</td>
+    <td>Use a supported release, or pick a package version that supports yours.</td></tr>
+<tr><td><code>uvm:notSynced</code></td>
+    <td>The project was never synced on this machine, or the cache was cleaned.</td>
+    <td><code>uvm sync</code></td></tr>
+<tr><td><code>uvm:stale</code></td>
+    <td><code>uvm.json</code> or <code>uvm.lock</code> changed since the last sync (for example after <code>git pull</code>).</td>
+    <td><code>uvm sync</code></td></tr>
+<tr><td><code>uvm:projectSyncFailed</code></td>
+    <td>Opening a <a href="projects.html#matlab-projects">connected MATLAB project</a> could not sync it; the message says why.</td>
+    <td>Fix the cause, then <code>uvm sync</code>.</td></tr>
+<tr><td><code>uvm:notInstalled</code></td>
+    <td>A MATLAB project uses uvm, but uvm is not on the path.</td>
+    <td>Install uvm (see <a href="getting_started.html">Getting Started</a>) and reopen the project.</td></tr>
+<tr><td><code>uvm:noTests</code></td>
+    <td><code>uvm test</code> found no tests.</td>
+    <td>Put tests in <code>tests/</code>, or pass the folder: <code>uvm test FOLDER</code>.</td></tr>
+<tr><td><code>uvm:uncheckedConstraint</code></td>
+    <td>A package pinned to a branch or commit is also required with a version range, which cannot be checked.</td>
+    <td>Pin a version tag instead.</td></tr>
+</table>
+
+<h2>Errors</h2>
+<table>
+<tr><th>Identifier</th><th>Meaning</th><th>What to do</th></tr>
+<tr><td><code>uvm:noProject</code></td>
+    <td>No <code>uvm.json</code> in the current folder or above.</td>
+    <td><code>cd</code> into the project, or <code>uvm init</code>.</td></tr>
+<tr><td><code>uvm:noVersion</code></td>
+    <td>No version satisfies all requirements. The message lists them.</td>
+    <td>Relax a constraint, or upgrade the package whose requirement is too old.</td></tr>
+<tr><td><code>uvm:sourceConflict</code></td>
+    <td>The same package name is required from two different URLs.</td>
+    <td>Make everyone use the registry name, or the same URL.</td></tr>
+<tr><td><code>uvm:pinConflict</code></td>
+    <td>A package is pinned to two different tags/branches/commits.</td>
+    <td>Agree on one.</td></tr>
+<tr><td><code>uvm:unknownPackage</code></td>
+    <td>A name is not in any registry.</td>
+    <td>Check <code>uvm registry list</code>, or add it by URL.</td></tr>
+<tr><td><code>uvm:noLock</code></td>
+    <td><code>--frozen</code> was used, but there is no <code>uvm.lock</code>.</td>
+    <td>Run <code>uvm lock</code> and commit <code>uvm.lock</code>.</td></tr>
+<tr><td><code>uvm:lockOutdated</code></td>
+    <td><code>--frozen</code> was used, but <code>uvm.json</code> changed since <code>uvm.lock</code> was written.</td>
+    <td>Run <code>uvm lock</code> and commit <code>uvm.lock</code>.</td></tr>
+<tr><td><code>uvm:testsFailed</code></td>
+    <td><code>uvm test</code> ran, and some tests failed or were incomplete.</td>
+    <td>See the test output above the error.</td></tr>
+<tr><td><code>uvm:missingCommit</code></td>
+    <td>A locked commit no longer exists on the server (history was rewritten).</td>
+    <td><code>uvm lock --upgrade</code></td></tr>
+<tr><td><code>uvm:gitFailed</code></td>
+    <td>git itself failed; its message is included.</td>
+    <td>Often authentication; see below.</td></tr>
+<tr><td><code>uvm:gitNotFound</code></td>
+    <td>git is not installed or not on the path MATLAB sees.</td>
+    <td>Install git; on Windows, restart MATLAB afterwards.</td></tr>
+</table>
+
+<h2>Authentication failures</h2>
+<p>uvm cannot answer password prompts. Run the same command in a terminal to see what
+git needs:</p>
+<pre><code>git ls-remote git@git.company.local:matlab/signal_utils.git</code></pre>
+<p><b>"Host key verification failed"</b> means this machine has never connected to the
+server over SSH. In a terminal, a first connection asks whether to trust the server;
+inside MATLAB uvm runs ssh in batch mode so it fails instead of waiting for an answer
+nobody can give. Connect once from a terminal (for example
+<code>ssh -T git@git.company.local</code>), accept the key, and try again.</p>
+<p>Once that works without a prompt (SSH key loaded, or credentials stored by a
+credential helper), uvm works too. See <a href="registries.html#auth">Authentication</a>.</p>
+
+<h2>Starting fresh</h2>
+<pre><code>&gt;&gt; uvm cache clean     % delete downloaded repositories and packages
+&gt;&gt; uvm sync            % download exactly what uvm.lock says</code></pre>
+<p>To re-resolve from scratch, delete <code>uvm.lock</code> before <code>uvm sync</code>.</p>
+
+</body>
+</html>

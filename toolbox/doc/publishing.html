@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Publishing a Package</title>
+<link rel="stylesheet" href="uvm.css">
+</head>
+<body>
+
+<div class="nav"><a href="index.html">uvm</a> &rsaquo; Publishing a Package</div>
+<h1>Publishing a Package</h1>
+
+<p>Any git repository is already a uvm package: without a <code>uvm.json</code>, its
+root folder goes on the path and it has no dependencies. Add a <code>uvm.json</code>
+when the code needs more.</p>
+
+<h2>1. Describe the package</h2>
+<pre><code>&gt;&gt; cd ~/work/signal_utils
+&gt;&gt; uvm init</code></pre>
+<p>Then edit <code>uvm.json</code>:</p>
+<ul>
+<li>Set <code>paths</code> if the code is not in the repository root, e.g.
+<code>["src"]</code>. Tests and examples should stay off the path.</li>
+<li>List the <code>toolboxes</code> it needs.</li>
+<li>Widen <code>matlab</code> to the oldest release you support.</li>
+<li>Add its <code>dependencies</code> with ranges as wide as you can, e.g.
+<code>"^1.2"</code> rather than <code>"=1.2.3"</code>, so it combines well with other
+packages.</li>
+</ul>
+
+<h2>2. Avoid name clashes</h2>
+<p>MATLAB has one global namespace: if two packages both contain
+<code>utils.m</code>, only one is visible, and uvm warns with
+<code>uvm:shadowing</code>. Put functions in a namespace folder named after the package:</p>
+<pre><code>signal_utils/
+  uvm.json                 "paths": ["src"]
+  src/
+    +signal_utils/
+      bandpass.m           called as signal_utils.bandpass(...)
+      envelope.m
+  tests/</code></pre>
+
+<h2>3. Release a version</h2>
+<pre><code>git tag v1.3.0
+git push origin v1.3.0</code></pre>
+<p>Follow semantic versioning: bump the patch number for fixes, the minor number for
+new features, and the major number when existing code could break. Never move or
+delete a released tag; projects have its commit in their lock.</p>
+
+<h2>4. Make it findable</h2>
+<p>Add the package to your team's <a href="registries.html">registry</a> so others can
+run <code>uvm add signal_utils</code>.</p>
+
+</body>
+</html>

@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Projects, Locking and Activation</title>
+<link rel="stylesheet" href="uvm.css">
+</head>
+<body>
+
+<div class="nav"><a href="index.html">uvm</a> &rsaquo; Projects, Locking and Activation</div>
+<h1>Projects, Locking and Activation</h1>
+
+<h2>The files of a project</h2>
+<table>
+<tr><th>File</th><th>Written by</th><th>Commit it?</th><th>Purpose</th></tr>
+<tr><td><code>uvm.json</code></td><td>you, <code>uvm init</code>, <code>uvm add</code>, <code>uvm remove</code></td><td>Yes</td>
+    <td>What the project needs: dependencies with version ranges, toolboxes, MATLAB release. See the <a href="manifest.html">reference</a>.</td></tr>
+<tr><td><code>uvm.lock</code></td><td><code>uvm lock</code>, <code>uvm sync</code></td><td>Yes</td>
+    <td>What was picked: the exact commit of every package, including indirect ones.</td></tr>
+<tr><td><code>.uvm/</code></td><td><code>uvm sync</code></td><td>No (ignores itself)</td>
+    <td>Local state; <code>.uvm/paths.txt</code> lists the folders that go on the path.</td></tr>
+</table>
+<p>uvm finds the project by looking for <code>uvm.json</code> in the current folder
+and its parents, so commands work from any subfolder.</p>
+
+<h2>What <code>uvm sync</code> does</h2>
+<ol>
+<li><b>Lock.</b> If <code>uvm.lock</code> is missing, or the dependencies in
+<code>uvm.json</code> changed since it was written, the dependencies are resolved and
+the lock is rewritten. Otherwise the lock is used as it is.</li>
+<li><b>Install.</b> Every locked commit that is not in the cache yet is fetched and
+unpacked.</li>
+<li><b>Check.</b> uvm warns about missing toolboxes, unsupported MATLAB releases and
+functions defined by more than one package.</li>
+<li><b>Activate.</b> The project's own folders and its packages go on the path.</li>
+</ol>
+
+<h2>Resolution</h2>
+<p>For each package, uvm picks the newest version tag that satisfies every package
+that asks for it, including indirect requirements. If <code>my_analysis</code> needs
+<code>lib_b ^0.2</code> and <code>lib_b</code> 0.2.0 needs <code>lib_a ^1.1</code>, uvm
+installs the newest 1.x of <code>lib_a</code>, even if 2.0 exists.</p>
+<p>When no single version fits, uvm stops with an error listing who requires what:</p>
+<pre><code>No version of "lib_a" satisfies all requirements:
+  my_analysis requires lib_a ^2 (git@server:matlab/lib_a.git)
+  lib_b requires lib_a ^1.1 (git@server:matlab/lib_a.git)</code></pre>
+
+<h3>Locked versions are kept</h3>
+<p>Re-resolving does not upgrade packages behind your back. A package keeps its locked
+commit as long as it still satisfies the requirements, and in that case uvm does not
+even contact the server. Upgrade explicitly:</p>
+<pre><code>&gt;&gt; uvm sync --upgrade      % newest allowed versions of everything
+&gt;&gt; uvm lock --upgrade      % same, but only rewrite uvm.lock</code></pre>
+<p>Dependencies that follow a branch are also pinned to the locked commit until you
+upgrade.</p>
+
+<h2>Activation and the path</h2>
+<p><code>uvm activate</code> reads <code>.uvm/paths.txt</code> and adds those folders to
+the top of the path. It never resolves or downloads, so it is fast enough to run from
+<code>startup.m</code>. Only one project is active at a time: activating another
+project first removes the previous one's folders, and <code>uvm deactivate</code>
+removes them without activating anything.</p>
+<p>The <code>startup.m</code> hook added by <code>uvm setup</code> runs
+<code>uvm activate --quiet</code> when MATLAB starts, which activates the project in the
+startup folder and does nothing if there is none. To activate another project later:</p>
+<pre><code>&gt;&gt; cd ~/work/other_project
+&gt;&gt; uvm activate</code></pre>
+
+<h2 id="matlab-projects">MATLAB Projects</h2>
+<p>If you work with MATLAB Projects (<code>.prj</code>), let the project switch uvm
+environments for you:</p>
+<pre><code>&gt;&gt; uvm project            % in an existing uvm project
+&gt;&gt; uvm init --project     % or when starting a new one</code></pre>
+<p>This creates a MATLAB project in the project root if there is none, and registers
+two files from <code>resources/uvm/</code>:</p>
+<table>
+<tr><td><code>uvm_project_startup.m</code></td><td>Runs when the project opens: syncs
+(normally just a quick check against <code>uvm.lock</code>) and activates. After a
+<code>git pull</code> that changed <code>uvm.lock</code>, opening the project installs
+the new versions.</td></tr>
+<tr><td><code>uvm_project_shutdown.m</code></td><td>Runs when the project closes:
+deactivates.</td></tr>
+</table>
+<p>Commit <code>resources/uvm/</code> along with the project file, so everyone who opens
+the project gets this behavior. Problems during opening become warnings
+(<code>uvm:projectSyncFailed</code>), so a project always opens. Undo it with
+<code>uvm project --remove</code>.</p>
+<p>With MATLAB Projects you usually don't need the <code>startup.m</code> hook from
+<code>uvm setup</code>; you only need uvm itself on the path.</p>
+
+<h2>The cache</h2>
+<p>Everything downloaded lives in <code>~/.uvm</code>, or in the folder named by the
+<code>UVM_HOME</code> environment variable:</p>
+<table>
+<tr><td><code>git/</code></td><td>One bare mirror per repository.</td></tr>
+<tr><td><code>pkgs/&lt;name&gt;/&lt;commit&gt;/</code></td><td>Installed packages, one folder per commit, shared by all projects.</td></tr>
+<tr><td><code>config.json</code></td><td>Your registries.</td></tr>
+</table>
+<p>Installed folders never change after they are written. Several MATLAB sessions can
+share one cache: every download is written under a temporary name first and renamed
+when complete. <code>uvm cache clean</code>
+deletes the mirrors and packages (not your config); the next <code>uvm sync</code> downloads
+them again.</p>
+
+</body>
+</html>

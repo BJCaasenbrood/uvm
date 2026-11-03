@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Version Constraints</title>
+<link rel="stylesheet" href="uvm.css">
+</head>
+<body>
+
+<div class="nav"><a href="index.html">uvm</a> &rsaquo; Version Constraints</div>
+<h1>Version Constraints</h1>
+
+<h2>Versions are git tags</h2>
+<p>A package's versions are its tags of the form <code>v1.2.3</code> or
+<code>1.2.3</code>; <code>v1.2</code> counts as 1.2.0. Other tags, including
+pre-releases like <code>v2.0.0-rc1</code>, are ignored. Both lightweight and annotated
+tags work.</p>
+
+<h2>Package constraints</h2>
+<p>The rules follow Cargo (Rust) and npm. Versions follow semantic versioning: a
+change in the first non-zero number is a breaking change.</p>
+<table>
+<tr><th>Constraint</th><th>Allows</th><th>Note</th></tr>
+<tr><td><code>^1.2.3</code></td><td>&gt;=1.2.3, &lt;2.0.0</td><td>Compatible updates. What <code>uvm add</code> writes.</td></tr>
+<tr><td><code>1.2.3</code></td><td>&gt;=1.2.3, &lt;2.0.0</td><td>A bare version means <code>^</code>.</td></tr>
+<tr><td><code>^0.2.3</code></td><td>&gt;=0.2.3, &lt;0.3.0</td><td>Below 1.0, the minor number is the breaking one.</td></tr>
+<tr><td><code>^0.0.3</code></td><td>&gt;=0.0.3, &lt;0.0.4</td><td></td></tr>
+<tr><td><code>~1.2.3</code></td><td>&gt;=1.2.3, &lt;1.3.0</td><td>Bug fixes only.</td></tr>
+<tr><td><code>~1</code></td><td>&gt;=1.0.0, &lt;2.0.0</td><td></td></tr>
+<tr><td><code>&gt;=1.2</code>, <code>&gt;1.2</code>, <code>&lt;2</code>, <code>&lt;=2</code></td><td>as written</td><td></td></tr>
+<tr><td><code>=1.4.1</code></td><td>exactly 1.4.1</td><td></td></tr>
+<tr><td><code>&gt;=1.2, &lt;1.8</code></td><td>both</td><td>Commas combine constraints.</td></tr>
+<tr><td><code>*</code></td><td>anything</td><td></td></tr>
+</table>
+
+<p>On the command line, attach the constraint with <code>@</code>:</p>
+<pre><code>&gt;&gt; uvm add signal_utils@~1.4
+&gt;&gt; uvm add 'signal_utils@&gt;=1.2, &lt;1.8'
+&gt;&gt; uvm add signal_utils --version '&gt;=1.2, &lt;1.8'</code></pre>
+<p>Quote constraints that contain a comma or a space: in command syntax MATLAB treats a
+comma as the end of the statement.</p>
+
+<h2 id="release">MATLAB release constraints</h2>
+<p>The <code>matlab</code> field of <code>uvm.json</code> uses release names:</p>
+<table>
+<tr><th>Constraint</th><th>Allows</th></tr>
+<tr><td><code>&gt;=R2023a</code> or <code>R2023a</code></td><td>R2023a and newer</td></tr>
+<tr><td><code>&lt;R2025a</code></td><td>releases before R2025a</td></tr>
+<tr><td><code>&gt;=R2022b, &lt;R2025a</code></td><td>R2022b up to R2024b</td></tr>
+</table>
+<p>uvm warns (<code>uvm:matlabRelease</code>) when the running MATLAB falls outside the
+range of the project or any of its packages.</p>
+
+</body>
+</html>

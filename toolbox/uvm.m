@@ -2,17 +2,23 @@ function varargout = uvm(command, varargin)
 %UVM  Project and package manager for MATLAB.
 %
 %   Projects
-%     uvm init [--name NAME]         Create uvm.json in the current folder
+%     uvm init [--name NAME] [--project]  Create uvm.json in the current folder
 %     uvm add NAME[@SPEC]            Add a dependency from a registry, e.g. uvm add signal_utils@^1.2
 %     uvm add URL [--tag T | --branch B | --rev R | --version SPEC] [--name NAME]
 %                                    Add a dependency straight from a git repository
 %     uvm remove NAME                Remove a dependency
 %     uvm lock [--upgrade]           Resolve dependencies and write uvm.lock
-%     uvm sync [--upgrade]           Lock if needed, install, and activate the project
+%     uvm sync [--upgrade | --frozen]  Lock if needed, install, and activate the project
 %     uvm list                       Show locked packages; P = uvm("list") returns them
-%     uvm run SCRIPT                 Sync, then run SCRIPT in the base workspace
+%     uvm run SCRIPT [--frozen]      Sync, then run SCRIPT in the base workspace
+%     uvm test [FOLDER] [--frozen] [--junit FILE]
+%                                    Sync, then run the tests (default: the tests folder)
 %     uvm activate [FOLDER]          Put the project's packages on the path
 %     uvm deactivate                 Take them off again
+%     uvm project [--remove]         Sync and activate whenever the MATLAB project opens
+%
+%   --frozen never changes uvm.lock and fails if it does not match uvm.json;
+%   use it in CI, e.g.  matlab -batch "uvm test --frozen --junit results.xml"
 %
 %   Configuration
 %     uvm registry add NAME URL      Register a package index (a git repo with index.json)
@@ -20,7 +26,8 @@ function varargout = uvm(command, varargin)
 %     uvm registry list
 %     uvm cache dir | clean          Show or delete the package cache
 %     uvm setup [--remove] [--file F]  Add the startup.m hook that activates projects
-%     uvm version
+%     uvm doc [PAGE]                 Open the documentation
+%     uvm version                    Show the uvm and git versions
 %
 %   Any command accepts --quiet to suppress progress messages.
 %
@@ -32,6 +39,9 @@ function varargout = uvm(command, varargin)
 %   work (GitLab, Bitbucket, Gitea, ...) is all the infrastructure needed.
 %   Set the UVM_HOME environment variable to move the cache and config away
 %   from ~/.uvm.
+%
+%   Documentation: <a href="matlab:uvm doc">uvm doc</a>, or
+%   <a href="matlab:uvm doc getting_started">Getting Started</a>.
 
     if nargin < 1
         help uvm
@@ -53,10 +63,13 @@ function varargout = uvm(command, varargin)
             cmdRemove(args);
         case 'lock'
             opts = uvm.internal.parseArgs(args, {'--upgrade'}, {});
-            lockProject(uvm.internal.loadProject(pwd), opts.upgrade, true);
+            uvm.internal.lockProject(uvm.internal.loadProject(pwd), opts.upgrade, true, false);
         case 'sync'
-            opts = uvm.internal.parseArgs(args, {'--upgrade'}, {});
-            syncProject(uvm.internal.loadProject(pwd), opts.upgrade);
+            opts = uvm.internal.parseArgs(args, {'--upgrade', '--frozen'}, {});
+            if opts.upgrade && opts.frozen
+                error('uvm:badArgs', '--upgrade and --frozen cannot be combined.');
+            end
+            uvm.internal.syncProject(uvm.internal.loadProject(pwd), opts.upgrade, opts.frozen);
         case 'list'
             packages = cmdList(nargout > 0);
             if nargout > 0
@@ -64,6 +77,22 @@ function varargout = uvm(command, varargin)
             end
         case 'run'
             cmdRun(args);
+        case 'test'
+            results = cmdTest(args);
+            if nargout > 0
+                varargout{1} = results;
+            elseif any([results.Failed]) || any([results.Incomplete])
+                % An error makes "matlab -batch" exit with a non-zero status for CI.
+                error('uvm:testsFailed', '%d of %d tests did not pass.', ...
+                    nnz([results.Failed] | [results.Incomplete]), numel(results));
+            end
+        case 'project'
+            opts = uvm.internal.parseArgs(args, {'--remove'}, {});
+            project = uvm.internal.loadProject(pwd);
+            uvm.internal.connectMatlabProject(project, opts.remove);
+            if ~opts.remove
+                uvm.internal.syncProject(project, false, false);
+            end
         case 'activate'
             cmdActivate(args, quiet);
         case 'deactivate'
@@ -81,11 +110,19 @@ function varargout = uvm(command, varargin)
         case 'setup'
             opts = uvm.internal.parseArgs(args, {'--remove'}, {'--file'});
             uvm.internal.setupStartup(opts.file, opts.remove);
+        case 'doc'
+            cmdDoc(args);
         case 'version'
             if nargout > 0
                 varargout{1} = uvm.internal.toolVersion();
             else
                 fprintf('uvm %s\n', uvm.internal.toolVersion());
+                [gitVersion, status] = uvm.internal.git('--version');
+                if status == 0
+                    fprintf('%s\n', strtrim(gitVersion));
+                else
+                    fprintf('git not found; install it and make sure it is on the PATH.\n');
+                end
             end
         case {'help', '--help', '-h'}
             help uvm
@@ -95,7 +132,7 @@ function varargout = uvm(command, varargin)
 end
 
 function cmdInit(args)
-    opts = uvm.internal.parseArgs(args, {}, {'--name'});
+    opts = uvm.internal.parseArgs(args, {'--project'}, {'--name'});
     root = pwd;
     file = fullfile(root, 'uvm.json');
     if isfile(file)
@@ -111,6 +148,11 @@ function cmdInit(args)
         'paths', {{'.'}}, 'dependencies', struct());
     uvm.internal.writeManifest(file, manifest);
     uvm.internal.say('Initialized project "%s" in %s', name, root);
+    if opts.project
+        project = uvm.internal.loadProject(root);
+        uvm.internal.connectMatlabProject(project, false);
+        uvm.internal.syncProject(project, false, false);
+    end
 end
 
 function cmdAdd(args)
@@ -178,7 +220,7 @@ function cmdAdd(args)
     end
     try
         project = setDependency(project, name, spec);
-        lock = lockProject(project, false, false);
+        lock = uvm.internal.lockProject(project, false, false, false);
         if autoSpec
             package = lock.packages(strcmp({lock.packages.name}, name));
             if strcmp(package.kind, 'semver') && ~isempty(package.version)
@@ -193,7 +235,7 @@ function cmdAdd(args)
                 uvm.internal.writeLock(project.lockFile, lock);
             end
         end
-        syncProject(project, false);
+        uvm.internal.syncProject(project, false, false);
     catch err
         restoreFile(project.manifestFile, manifestBackup);
         restoreFile(project.lockFile, lockBackup);
@@ -215,7 +257,7 @@ function cmdRemove(args)
     end
     raw.dependencies = rmfield(raw.dependencies, name);
     uvm.internal.writeManifest(project.manifestFile, raw);
-    syncProject(uvm.internal.loadProject(project.root), false);
+    uvm.internal.syncProject(uvm.internal.loadProject(project.root), false, false);
     uvm.internal.say('Removed %s', name);
 end
 
@@ -244,9 +286,9 @@ function packages = cmdList(returnOnly)
 end
 
 function cmdRun(args)
-    [~, positional] = uvm.internal.parseArgs(args, {}, {});
+    [opts, positional] = uvm.internal.parseArgs(args, {'--frozen'}, {});
     if numel(positional) ~= 1
-        error('uvm:badArgs', 'Usage: uvm run SCRIPT');
+        error('uvm:badArgs', 'Usage: uvm run SCRIPT [--frozen]');
     end
     script = positional{1};
     if ~isfile(script) && isfile([script '.m'])
@@ -256,8 +298,29 @@ function cmdRun(args)
         error('uvm:noScript', 'Script "%s" not found.', positional{1});
     end
     script = uvm.internal.absoluteSource(script, pwd);
-    syncProject(uvm.internal.loadProject(pwd), false);
+    uvm.internal.syncProject(uvm.internal.loadProject(pwd), false, opts.frozen);
     evalin('base', sprintf('run(''%s'');', strrep(script, '''', '''''')));
+end
+
+function results = cmdTest(args)
+    [opts, positional] = uvm.internal.parseArgs(args, {'--frozen'}, {'--junit'});
+    if numel(positional) > 1
+        error('uvm:badArgs', 'Usage: uvm test [FOLDER] [--frozen] [--junit FILE]');
+    end
+    project = uvm.internal.loadProject(pwd);
+    uvm.internal.syncProject(project, false, opts.frozen);
+    target = '';
+    if ~isempty(positional)
+        target = uvm.internal.absoluteSource(positional{1}, pwd);
+    end
+    junit = '';
+    if ~isempty(opts.junit)
+        junit = fullfile(pwd, opts.junit);
+        if startsWith(opts.junit, {'/', '\'}) || ~isempty(regexp(opts.junit, '^[A-Za-z]:', 'once'))
+            junit = opts.junit;
+        end
+    end
+    results = uvm.internal.runTests(project, target, junit);
 end
 
 function cmdActivate(args, quiet)
@@ -347,24 +410,16 @@ function folder = cmdCache(args, returnOnly)
     end
 end
 
-function lock = lockProject(project, upgrade, force)
-%LOCKPROJECT  Return an up-to-date lock, resolving only when the manifest changed.
-    previous = uvm.internal.readLock(project.lockFile);
-    if ~force && ~upgrade && ~isempty(previous) && ...
-            strcmp(jsonencode(previous.requires), jsonencode(project.manifest.dependencies))
-        lock = previous;
-        return
+function cmdDoc(args)
+    page = 'index';
+    if ~isempty(args)
+        page = regexprep(args{1}, '\.html$', '');
     end
-    lock = uvm.internal.resolve(project, previous, upgrade);
-    uvm.internal.writeLock(project.lockFile, lock);
-    uvm.internal.say('Resolved %d package(s)', numel(lock.packages));
-end
-
-function syncProject(project, upgrade)
-    lock = lockProject(project, upgrade, false);
-    uvm.internal.install(project, lock);
-    uvm.internal.checkEnvironment(project, lock);
-    uvm.internal.activate(project.root);
+    file = fullfile(fileparts(mfilename('fullpath')), 'doc', [page '.html']);
+    if ~isfile(file)
+        error('uvm:noDocPage', 'No documentation page "%s". Run "uvm doc" for the contents.', page);
+    end
+    web(file);
 end
 
 function project = setDependency(project, name, spec)

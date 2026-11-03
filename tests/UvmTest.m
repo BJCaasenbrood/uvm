@@ -210,6 +210,71 @@ classdef UvmTest < matlab.unittest.TestCase
             tc.verifyWarning(@() uvm('sync', '--quiet'), 'uvm:missingToolbox');
         end
 
+        function frozenRequiresMatchingLock(tc)
+            tc.verifyError(@() uvm('sync', '--frozen', '--quiet'), 'uvm:noLock');
+            uvm add lib_a --quiet
+            uvm sync --frozen --quiet
+            lockBefore = fileread('uvm.lock');
+
+            m = jsondecode(fileread('uvm.json'));
+            m.dependencies.lib_a = '^1.0';
+            uvm.internal.writeManifest('uvm.json', m);
+            tc.verifyError(@() uvm('sync', '--frozen', '--quiet'), 'uvm:lockOutdated');
+            tc.verifyError(@() uvm('test', '--frozen', '--quiet'), 'uvm:lockOutdated');
+            tc.verifyEqual(fileread('uvm.lock'), lockBefore);
+        end
+
+        function testCommand(tc)
+            uvm add lib_a --quiet
+            mkdir('tests');
+            writeFile(fullfile('tests', 'SampleTest.m'), sprintf([ ...
+                'function tests = SampleTest\ntests = functiontests(localfunctions);\nend\n' ...
+                'function testUsesDependency(tc)\nverifyEqual(tc, lib_a_version(), ''2.0.0'');\nend\n']));
+            results = uvm('test', '--frozen', '--junit', 'results.xml', '--quiet');
+            tc.verifyEqual(numel(results), 1);
+            tc.verifyTrue(results.Passed);
+            tc.verifyTrue(contains(fileread('results.xml'), 'testUsesDependency'));
+
+            writeFile(fullfile('tests', 'BrokenTest.m'), sprintf([ ...
+                'function tests = BrokenTest\ntests = functiontests(localfunctions);\nend\n' ...
+                'function testFails(tc)\nverifyFail(tc, ''on purpose'');\nend\n']));
+            tc.verifyError(@() evalc('uvm test --quiet'), 'uvm:testsFailed');
+        end
+
+        function matlabProjectHooks(tc)
+            uvm add lib_a --quiet
+            uvm project --quiet
+            proj = currentProject;
+            tc.addTeardown(@() closeIfOpen(proj));
+            tc.verifyTrue(any(endsWith(string(proj.StartupFiles), 'uvm_project_startup.m')));
+            tc.verifyTrue(any(endsWith(string(proj.ShutdownFiles), 'uvm_project_shutdown.m')));
+            tc.verifyEqual(lib_a_version(), '2.0.0');
+
+            close(proj);
+            tc.verifyEqual(exist('lib_a_version', 'file'), 0);
+            proj = openProject(tc.Project);
+            tc.verifyEqual(lib_a_version(), '2.0.0');
+
+            uvm project --remove --quiet
+            tc.verifyFalse(isfolder(fullfile(tc.Project, 'resources', 'uvm')));
+            tc.verifyEmpty(proj.StartupFiles);
+        end
+
+        function concurrentInstallKeepsFirstCopy(tc)
+            dest = fullfile(tc.Project, 'cache', 'pkg');
+            first = uvm.internal.stagingFolder(dest);
+            second = uvm.internal.stagingFolder(dest);
+            tc.verifyNotEqual(first, second);
+            mkdir(first);
+            writeFile(fullfile(first, 'a.txt'), 'first');
+            mkdir(second);
+            writeFile(fullfile(second, 'a.txt'), 'second');
+            uvm.internal.commitFolder(first, dest);
+            uvm.internal.commitFolder(second, dest);
+            tc.verifyEqual(fileread(fullfile(dest, 'a.txt')), 'first');
+            tc.verifyFalse(isfolder(second));
+        end
+
         function unknownPackage(tc)
             tc.verifyError(@() uvm('add', 'nope', '--quiet'), 'uvm:unknownPackage');
         end
@@ -286,6 +351,12 @@ end
 function commitAll(repo)
     gitIn(repo, 'add', '-A');
     gitIn(repo, 'commit', '--quiet', '-m', 'update');
+end
+
+function closeIfOpen(proj)
+    if proj.isLoaded
+        close(proj);
+    end
 end
 
 function writeFile(file, text)

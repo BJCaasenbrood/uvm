@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<toc version="2.0">
+    <tocitem target="index.html">uvm
+        <tocitem target="getting_started.html" image="HelpIcon.GETTING_STARTED">Getting Started</tocitem>
+        <tocitem target="projects.html">Projects, Locking and Activation</tocitem>
+        <tocitem target="manifest.html">uvm.json Reference</tocitem>
+        <tocitem target="versions.html">Version Constraints</tocitem>
+        <tocitem target="registries.html">Registries and Work Servers</tocitem>
+        <tocitem target="publishing.html">Publishing a Package</tocitem>
+        <tocitem target="ci.html">Testing and Continuous Integration</tocitem>
+        <tocitem target="troubleshooting.html">Troubleshooting</tocitem>
+        <tocitem target="uvm.html" image="HelpIcon.FUNCTION">uvm</tocitem>
+    </tocitem>
+</toc>

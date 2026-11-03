@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Getting Started with uvm</title>
+<link rel="stylesheet" href="uvm.css">
+</head>
+<body>
+
+<div class="nav"><a href="index.html">uvm</a> &rsaquo; Getting Started</div>
+<h1>Getting Started</h1>
+
+<h2>1. Install uvm</h2>
+<p>Put the <code>toolbox</code> folder on the path, then let uvm add itself to your
+<code>startup.m</code> so it is available in every session:</p>
+<pre><code>&gt;&gt; addpath('/path/to/UVmatlab/toolbox')
+&gt;&gt; uvm setup</code></pre>
+<p>The hook that <code>uvm setup</code> adds also activates the project in the folder
+MATLAB starts in. Remove it again with <code>uvm setup --remove</code>.</p>
+
+<p>Check that git can be found:</p>
+<pre><code>&gt;&gt; uvm version</code></pre>
+
+<h2>2. Create a project</h2>
+<pre><code>&gt;&gt; cd ~/work/my_analysis
+&gt;&gt; uvm init
+Initialized project "my_analysis" in /home/me/work/my_analysis</code></pre>
+<p>This writes <code>uvm.json</code>:</p>
+<pre><code>{
+  "name": "my_analysis",
+  "version": "0.1.0",
+  "matlab": "&gt;=R2024a",
+  "toolboxes": [],
+  "paths": ["."],
+  "dependencies": {}
+}</code></pre>
+
+<p>Using MATLAB Projects? Run <code>uvm init --project</code> instead; opening the
+project then activates its packages automatically. See
+<a href="projects.html#matlab-projects">MATLAB Projects</a>.</p>
+
+<h2>3. Point uvm at your registry</h2>
+<p>A registry maps package names to git URLs. If your team has one, register it once
+per machine:</p>
+<pre><code>&gt;&gt; uvm registry add work git@git.company.local:matlab/registry.git</code></pre>
+<p>No registry yet? You can add packages by URL instead &mdash; see step 4 &mdash; or
+<a href="registries.html">set one up</a>.</p>
+
+<h2>4. Add dependencies</h2>
+<p>From a registry, by name:</p>
+<pre><code>&gt;&gt; uvm add signal_utils           % newest version, saved as "^1.4.0"
+&gt;&gt; uvm add plot_tools@~2.1        % a specific range</code></pre>
+<p>Straight from a git repository:</p>
+<pre><code>&gt;&gt; uvm add git@git.company.local:lab/daq_tools.git --tag v0.4.0
+&gt;&gt; uvm add https://github.com/someone/fancy_lib.git --branch main
+&gt;&gt; uvm add ../local_lib                                  % a folder on disk</code></pre>
+<p>Each <code>uvm add</code> updates <code>uvm.json</code>, resolves versions into
+<code>uvm.lock</code>, installs what is missing and activates the project, so the
+functions are usable straight away.</p>
+
+<h2>5. Use it</h2>
+<pre><code>&gt;&gt; uvm list
+Package              Version      Commit     Source
+daq_tools            0.4.0        3f9c2a1b   git@git.company.local:lab/daq_tools.git
+signal_utils         1.4.0        a81d07e2   git@git.company.local:matlab/signal_utils.git
+
+&gt;&gt; uvm run analysis.m</code></pre>
+
+<h2>6. Share it</h2>
+<p>Commit <code>uvm.json</code> and <code>uvm.lock</code>. A colleague clones the project
+and runs:</p>
+<pre><code>&gt;&gt; uvm sync</code></pre>
+<p>and gets exactly the same commits of every package.</p>
+
+<p>Next: <a href="projects.html">Projects, Locking and Activation</a></p>
+
+</body>
+</html>

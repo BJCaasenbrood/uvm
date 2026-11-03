@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Registries and Work Servers</title>
+<link rel="stylesheet" href="uvm.css">
+</head>
+<body>
+
+<div class="nav"><a href="index.html">uvm</a> &rsaquo; Registries and Work Servers</div>
+<h1>Registries and Work Servers</h1>
+
+<p>A registry lets people write <code>uvm add signal_utils</code> instead of a full git
+URL. It is nothing more than a git repository with one file, <code>index.json</code>,
+so it can live on the same internal git server as your packages and uses the same
+access control.</p>
+
+<h2>Create a registry</h2>
+<ol>
+<li>Create a repository on your server, e.g. <code>matlab/registry</code>.</li>
+<li>Add <code>index.json</code> on its default branch:
+<pre><code>{
+  "packages": {
+    "signal_utils": { "url": "git@git.company.local:matlab/signal_utils.git" },
+    "daq_tools":    { "url": "git@git.company.local:lab/daq_tools.git" },
+    "plot_tools":   "git@git.company.local:matlab/plot_tools.git"
+  }
+}</code></pre>
+An entry is either an object with a <code>url</code> or just the URL as a string.</li>
+<li>Commit and push. To publish a new package later, add a line and push again.</li>
+</ol>
+<p>The registry only maps names to repositories. Versions always come from the tags in
+each package's own repository, so releasing a new version never requires touching the
+registry.</p>
+
+<h2>Use a registry</h2>
+<p>Per machine:</p>
+<pre><code>&gt;&gt; uvm registry add work git@git.company.local:matlab/registry.git
+&gt;&gt; uvm registry list
+work         git@git.company.local:matlab/registry.git
+&gt;&gt; uvm registry remove work</code></pre>
+<p>Or per project, so colleagues need no setup at all &mdash; add this to
+<code>uvm.json</code>:</p>
+<pre><code>"registries": [
+  { "name": "work", "url": "git@git.company.local:matlab/registry.git" }
+]</code></pre>
+<p>uvm searches the project's registries first, then your own, in order; the first
+registry listing a name wins.</p>
+
+<h2>When the server is contacted</h2>
+<ul>
+<li>A registry is fetched when a name is not in its local copy yet, and on
+<code>--upgrade</code>.</li>
+<li>A package repository is fetched when it is first used, when resolving a package that
+has no locked version, and on <code>--upgrade</code>.</li>
+<li><code>uvm sync</code> with an up-to-date lock and a warm cache, and
+<code>uvm activate</code>, work entirely offline.</li>
+</ul>
+
+<h2 id="auth">Authentication</h2>
+<p>uvm runs the <code>git</code> installed on your machine, so whatever works for
+<code>git clone</code> in a terminal works for uvm:</p>
+<ul>
+<li><b>SSH</b> (<code>git@host:...</code>): your SSH key and agent. Recommended for work
+servers.</li>
+<li><b>HTTPS</b>: git's credential helper (Git Credential Manager on Windows, the
+keychain on macOS, <code>credential.helper store</code> or <code>libsecret</code> on
+Linux). Sign in once in a terminal so the credentials are stored.</li>
+<li>Proxies and company certificates: configure them in git
+(<code>http.proxy</code>, <code>http.sslCAInfo</code>).</li>
+</ul>
+<div class="warn">uvm cannot show git's password prompt inside MATLAB; it switches
+prompts off so git fails instead of hanging. For the same reason ssh runs in batch mode,
+so the first connection to a new server fails with "Host key verification failed"
+instead of asking whether to trust it. If you see an authentication error, run
+<code>git ls-remote URL</code> in a terminal, fix it there, and try again. If you set
+<code>GIT_SSH_COMMAND</code>, <code>GIT_SSH</code> or <code>core.sshCommand</code>
+yourself, uvm leaves your ssh setup alone.</div>
+
+</body>
+</html>

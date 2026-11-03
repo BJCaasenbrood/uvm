@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>uvm</title>
+<link rel="stylesheet" href="uvm.css">
+</head>
+<body>
+
+<div class="nav"><a href="index.html">uvm</a> &rsaquo; uvm</div>
+<h1>uvm</h1>
+<p>Project and package manager for MATLAB</p>
+
+<h2>Syntax</h2>
+<pre><code>uvm command arguments
+uvm("command", "argument", ...)
+result = uvm("command", ...)</code></pre>
+<p>Both forms are the same: <code>uvm add lib_a</code> is <code>uvm("add", "lib_a")</code>.
+Use the function form to pass variables or to get a result. Every command accepts
+<code>--quiet</code> to suppress progress messages.</p>
+
+<h2>Project commands</h2>
+
+<h3 id="init">uvm init</h3>
+<pre><code>uvm init
+uvm init --name NAME
+uvm init --project</code></pre>
+<p>Create <code>uvm.json</code> in the current folder. The name defaults to the folder
+name made into a valid identifier. <code>--project</code> also runs
+<a href="#project">uvm project</a>.</p>
+
+<h3 id="add">uvm add</h3>
+<pre><code>uvm add NAME
+uvm add NAME@SPEC
+uvm add NAME --version SPEC
+uvm add URL
+uvm add URL --tag TAG | --branch BRANCH | --rev COMMIT | --version SPEC
+uvm add URL --name NAME</code></pre>
+<p>Add a dependency, then lock, install and activate. <code>NAME</code> is looked up in
+the <a href="registries.html">registries</a>; <code>URL</code> is any git URL or a local
+folder. The package name for a URL is the repository name, unless you give
+<code>--name</code>.</p>
+<p>Without a constraint, uvm picks the newest version and records <code>^</code> that
+version, e.g. <code>"^1.4.0"</code>. A repository without version tags is added on its
+default branch. If anything fails, <code>uvm.json</code> and <code>uvm.lock</code> are
+left as they were.</p>
+
+<h3 id="remove">uvm remove</h3>
+<pre><code>uvm remove NAME</code></pre>
+<p>Remove a direct dependency and sync. Packages that were only needed by it disappear
+from the lock.</p>
+
+<h3 id="lock">uvm lock</h3>
+<pre><code>uvm lock
+uvm lock --upgrade</code></pre>
+<p>Resolve dependencies and write <code>uvm.lock</code> without installing. Locked
+versions are kept where they still fit; <code>--upgrade</code> takes the newest allowed
+versions instead.</p>
+
+<h3 id="sync">uvm sync</h3>
+<pre><code>uvm sync
+uvm sync --upgrade
+uvm sync --frozen</code></pre>
+<p>Make the environment match the project: lock if <code>uvm.json</code> changed,
+install missing packages, check toolboxes and releases, and activate. See
+<a href="projects.html">Projects, Locking and Activation</a>.
+<code>--frozen</code> installs exactly what <code>uvm.lock</code> says and fails if the
+lock is missing or out of date, instead of re-resolving; see
+<a href="ci.html#frozen">Frozen mode</a>.</p>
+
+<h3 id="list">uvm list</h3>
+<pre><code>uvm list
+packages = uvm("list")</code></pre>
+<p>Show the locked packages. With an output, returns a struct array with fields
+<code>name</code>, <code>version</code>, <code>source</code>, <code>kind</code>
+(<code>semver</code>, <code>tag</code>, <code>branch</code> or <code>rev</code>),
+<code>ref</code>, <code>commit</code>, <code>paths</code>, <code>toolboxes</code>,
+<code>matlab</code> and <code>dependencies</code>.</p>
+
+<h3 id="run">uvm run</h3>
+<pre><code>uvm run SCRIPT
+uvm run SCRIPT --frozen</code></pre>
+<p>Sync the project in the current folder, then run <code>SCRIPT</code> in the base
+workspace.</p>
+
+<h3 id="test">uvm test</h3>
+<pre><code>uvm test
+uvm test FOLDER
+uvm test --frozen --junit FILE
+results = uvm("test")</code></pre>
+<p>Sync, then run the tests in <code>FOLDER</code>, by default the project's
+<code>tests</code> folder (or the root if there is none), including subfolders.
+Without an output argument, raises <code>uvm:testsFailed</code> if any test fails, so
+<code>matlab -batch</code> exits non-zero. <code>--junit FILE</code> writes a JUnit XML
+report. See <a href="ci.html">Testing and Continuous Integration</a>.</p>
+
+<h3 id="activate">uvm activate, uvm deactivate</h3>
+<pre><code>uvm activate
+uvm activate FOLDER
+uvm deactivate</code></pre>
+<p>Put the synced packages of the project containing the current folder (or
+<code>FOLDER</code>) on the path, or remove them again. Activation only reads local
+files. With <code>--quiet</code>, activating outside a project does nothing instead of
+raising an error; this is what the startup hook uses.</p>
+
+<h3 id="project">uvm project</h3>
+<pre><code>uvm project
+uvm project --remove</code></pre>
+<p>Connect the project to a MATLAB project (<code>.prj</code>), creating one in the
+project root if needed: opening the MATLAB project syncs and activates, closing it
+deactivates. The hook files are written to <code>resources/uvm/</code>.
+<code>--remove</code> takes the hooks out again. See
+<a href="projects.html#matlab-projects">MATLAB Projects</a>.</p>
+
+<h2>Configuration commands</h2>
+
+<h3 id="registry">uvm registry</h3>
+<pre><code>uvm registry add NAME URL
+uvm registry remove NAME
+uvm registry list
+registries = uvm("registry", "list")</code></pre>
+<p>Manage the registries in your user config. Adding an existing name replaces its URL.</p>
+
+<h3 id="cache">uvm cache</h3>
+<pre><code>uvm cache dir
+folder = uvm("cache", "dir")
+uvm cache clean</code></pre>
+<p>Show the cache folder (<code>UVM_HOME</code>, default <code>~/.uvm</code>), or delete
+the downloaded repositories and packages in it.</p>
+
+<h3 id="setup">uvm setup</h3>
+<pre><code>uvm setup
+uvm setup --remove
+uvm setup --file FILE</code></pre>
+<p>Add a block to <code>startup.m</code> that puts uvm on the path and activates the
+project in the startup folder. Uses the <code>startup.m</code> on the path, or creates
+one in <code>userpath</code>. Running it again replaces the block; <code>--remove</code>
+deletes it and leaves the rest of the file alone.</p>
+
+<h3 id="doc">uvm doc</h3>
+<pre><code>uvm doc
+uvm doc PAGE</code></pre>
+<p>Open this documentation. <code>PAGE</code> is one of <code>getting_started</code>,
+<code>projects</code>, <code>manifest</code>, <code>versions</code>,
+<code>registries</code>, <code>publishing</code>, <code>ci</code>,
+<code>troubleshooting</code> or <code>uvm</code>.</p>
+
+<h3 id="version">uvm version</h3>
+<pre><code>uvm version
+v = uvm("version")</code></pre>
+<p>Show the uvm version and the git it uses.</p>
+
+<h2>Examples</h2>
+<pre><code>% Start a project with two dependencies
+uvm init
+uvm registry add work git@git.company.local:matlab/registry.git
+uvm add signal_utils
+uvm add git@git.company.local:lab/daq_tools.git --tag v0.4.0
+
+% Pass a variable with the function form
+url = "git@git.company.local:lab/" + repoName + ".git";
+uvm("add", url, "--branch", "develop")
+
+% In CI, refuse release builds that depend on branches or loose commits
+packages = uvm("list");
+assert(all(strcmp({packages.kind}, "semver")), "Release builds must use version tags")</code></pre>
+
+<h2>See also</h2>
+<p><a href="getting_started.html">Getting Started</a> &middot;
+<a href="manifest.html">uvm.json Reference</a> &middot;
+<a href="versions.html">Version Constraints</a></p>
+
+</body>
+</html>

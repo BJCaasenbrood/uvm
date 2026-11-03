@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Testing and Continuous Integration</title>
+<link rel="stylesheet" href="uvm.css">
+</head>
+<body>
+
+<div class="nav"><a href="index.html">uvm</a> &rsaquo; Testing and Continuous Integration</div>
+<h1>Testing and Continuous Integration</h1>
+
+<h2>Run the tests</h2>
+<pre><code>&gt;&gt; uvm test                    % tests/ and its subfolders, or the project root if there is no tests/
+&gt;&gt; uvm test tests/unit         % a specific folder or test file
+&gt;&gt; results = uvm("test");      % get the matlab.unittest.TestResult array</code></pre>
+<p><code>uvm test</code> syncs the project first, so the tests always run against the
+locked packages. Without an output argument it raises <code>uvm:testsFailed</code> when
+any test fails or is incomplete; with an output argument it returns the results and
+leaves the decision to you.</p>
+
+<h2 id="frozen">Frozen mode</h2>
+<p>On a developer machine, <code>uvm sync</code> re-resolves when <code>uvm.json</code>
+changed. In CI that would hide a mistake: the build would test versions nobody
+locked or reviewed. <code>--frozen</code> never touches <code>uvm.lock</code> and fails
+instead:</p>
+<table>
+<tr><th>Situation</th><th>Error</th></tr>
+<tr><td>No <code>uvm.lock</code></td><td><code>uvm:noLock</code></td></tr>
+<tr><td><code>uvm.json</code> dependencies changed since the lock was written</td><td><code>uvm:lockOutdated</code></td></tr>
+</table>
+<p><code>--frozen</code> works with <code>uvm sync</code>, <code>uvm run</code> and
+<code>uvm test</code>. The fix is always to run <code>uvm lock</code> locally and commit
+<code>uvm.lock</code>.</p>
+
+<h2>Running MATLAB in CI</h2>
+<p><code>matlab -batch</code> exits with status 1 when the command raises an error, which
+is exactly what CI needs:</p>
+<pre><code>matlab -batch "addpath('uvm/toolbox'); uvm test --frozen --junit test-results.xml"</code></pre>
+<p><code>--junit FILE</code> writes a JUnit XML report, which GitLab, Jenkins, Azure DevOps
+and GitHub can show test by test.</p>
+
+<h3>GitLab CI</h3>
+<pre><code># .gitlab-ci.yml
+test:
+  image: mathworks/matlab:r2024a      # or a runner with MATLAB installed
+  variables:
+    MLM_LICENSE_FILE: "27000@license.company.local"
+    UVM_HOME: "$CI_PROJECT_DIR/.uvm-cache"
+  cache:
+    key: uvm
+    paths: [.uvm-cache/]
+  before_script:
+    - git clone --depth 1 git@git.company.local:tools/uvm.git /opt/uvm
+  script:
+    - matlab -batch "addpath('/opt/uvm/toolbox'); uvm test --frozen --junit test-results.xml"
+  artifacts:
+    when: always
+    reports:
+      junit: test-results.xml</code></pre>
+
+<h3>GitHub Actions</h3>
+<pre><code># .github/workflows/test.yml
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: matlab-actions/setup-matlab@v2
+      - uses: matlab-actions/run-command@v2
+        with:
+          command: addpath('uvm/toolbox'); uvm test --frozen --junit test-results.xml</code></pre>
+
+<h2>Tips</h2>
+<ul>
+<li><b>Cache the packages.</b> Point <code>UVM_HOME</code> into the workspace and cache that
+folder, as in the GitLab example. With a warm cache and a frozen lock, CI does not
+contact your git server at all.</li>
+<li><b>Access to private packages.</b> The CI job needs read access to every package
+repository, for example through a deploy key or a CI job token in a git credential
+helper. uvm never prompts, so missing access fails fast with
+<code>uvm:gitFailed</code>.</li>
+<li><b>Several releases.</b> Run the same job with different MATLAB images to check the
+<code>matlab</code> range in <code>uvm.json</code>.</li>
+</ul>
+
+</body>
+</html>
