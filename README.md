@@ -1,4 +1,4 @@
-# uvm: Unified Matlab packaging
+# uvm: Universal Matlab Package Manager
 
 A project and package manager for MATLAB, inspired by [uv](https://github.com/astral-sh/uv).
 Installs packages from any git repository (GitHub, GitLab, your company server, or a local
@@ -7,8 +7,15 @@ project.
 
 ## Quickstart
 
-Clone this repo, add `toolbox/` to your MATLAB path, and run `uvm setup` once so uvm loads
-at startup. Then, in a project folder:
+Download [`install_uvm.m`](install_uvm.m) (or clone this repo) and run it in MATLAB:
+
+```
+>> install_uvm
+```
+
+It installs uvm into `~/.uvm/uvm` and hooks it into `startup.m`. Run it again to update,
+`install_uvm(Ref="v0.1.0")` for a specific version, or `install_uvm(Uninstall=true)` to
+remove it. Then, in a project folder:
 
 - `uvm init`: start a project (creates `uvm.json`)
 - `uvm search [query]`: search your registries, GitHub and the File Exchange

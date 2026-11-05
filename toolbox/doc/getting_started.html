@@ -11,12 +11,21 @@
 <h1>Getting Started</h1>
 
 <h2>1. Install uvm</h2>
-<p>Put the <code>toolbox</code> folder on the path, then let uvm add itself to your
-<code>startup.m</code> so it is available in every session:</p>
-<pre><code>&gt;&gt; addpath('/path/to/UVmatlab/toolbox')
-&gt;&gt; uvm setup</code></pre>
-<p>The hook that <code>uvm setup</code> adds also activates the project in the folder
-MATLAB starts in. Remove it again with <code>uvm setup --remove</code>.</p>
+<p>Run the installer, <code>install_uvm.m</code> from the uvm repository:</p>
+<pre><code>&gt;&gt; install_uvm</code></pre>
+<p>It checks your MATLAB release and git, clones uvm into <code>~/.uvm/uvm</code>, puts it
+on the path and adds a hook to your <code>startup.m</code> so uvm is available in every
+session. The hook also activates the project in the folder MATLAB starts in.</p>
+<table>
+<tr><td><code>install_uvm</code></td><td>Install, or update an existing installation.</td></tr>
+<tr><td><code>install_uvm(Ref="v0.1.0")</code></td><td>Install a specific tag or branch.</td></tr>
+<tr><td><code>install_uvm(Folder="D:\tools\uvm")</code></td><td>Install somewhere else.</td></tr>
+<tr><td><code>install_uvm(Startup=false)</code></td><td>Don't touch <code>startup.m</code>.</td></tr>
+<tr><td><code>install_uvm(Uninstall=true)</code></td><td>Remove the hook and the installed copy; your projects and package cache stay.</td></tr>
+</table>
+<p>Working from a clone of the repository instead? Then
+<code>addpath('/path/to/uvm/toolbox')</code> followed by <code>uvm setup</code> does the
+same; <code>uvm setup --remove</code> takes the hook out again.</p>
 
 <p>Check that git can be found:</p>
 <pre><code>&gt;&gt; uvm version</code></pre>
