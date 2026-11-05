@@ -48,7 +48,11 @@ when your project is installed as someone else's dependency, uvm reads its
     missing.</td></tr>
 <tr><td><code>paths</code></td><td><code>["."]</code></td>
     <td>Folders, relative to the package root, that go on the path. Use this when code
-    lives in e.g. <code>src/</code>. Paths may not leave the package.</td></tr>
+    lives in e.g. <code>src/</code>. <code>"src/**"</code> adds <code>src</code> and all
+    its subfolders (skipping <code>private</code>, <code>@class</code>,
+    <code>+namespace</code> and hidden folders, which MATLAB handles itself);
+    <code>"**"</code> does that for the whole package. Paths may not leave the
+    package.</td></tr>
 <tr><td><code>dependencies</code></td><td><code>{}</code></td>
     <td>Packages this one needs; see below.</td></tr>
 <tr><td><code>registries</code></td><td><code>[]</code></td>
@@ -76,6 +80,18 @@ registry:</p>
 <tr><td><code>{"git": URL, "branch": "main"}</code></td><td>The branch head, locked until <code>--upgrade</code>.</td></tr>
 <tr><td><code>{"git": URL, "rev": "3f9c2a1"}</code></td><td>That commit.</td></tr>
 </table>
+<p>For repositories without a <code>uvm.json</code>, add <code>"paths"</code> to say
+which folders go on the path, as in the manifest field above:</p>
+<pre><code>"gramm": { "git": "https://github.com/piermorel/gramm.git", "tag": "v3.1.2", "paths": ["gramm"] }</code></pre>
+<p>Likewise, <code>"dependencies"</code> on a git dependency declares what a package
+without a <code>uvm.json</code> needs:</p>
+<pre><code>"fastvis": { "git": "https://github.com/fr0nkk/FastVisualization.git", "tag": "v1.1.0",
+             "paths": ["fastvis", "utils", "utils/java", "obj"],
+             "dependencies": { "matogl": { "git": "https://github.com/fr0nkk/matogl.git",
+                                           "version": "^3.1.2",
+                                           "paths": ["gl", "utils", "utils/java"] } } }</code></pre>
+<p>A package's own <code>uvm.json</code> takes precedence when it sets
+<code>"paths"</code> or <code>"dependencies"</code>.</p>
 <p>URLs can be anything git accepts: <code>git@host:group/repo.git</code>,
 <code>https://host/group/repo.git</code>, <code>ssh://...</code>, or a local folder.
 Relative folders in your project's <code>uvm.json</code> are relative to the project

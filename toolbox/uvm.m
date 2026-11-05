@@ -275,13 +275,13 @@ function packages = cmdList(returnOnly)
         fprintf('No dependencies.\n');
         return
     end
-    fprintf('%-20s %-12s %-10s %s\n', 'Package', 'Version', 'Commit', 'Source');
+    fprintf('%-20s %-16s %-10s %s\n', 'Package', 'Version', 'Commit', 'Source');
     for p = packages(:)'
         label = p.version;
         if ~strcmp(p.kind, 'semver')
             label = sprintf('%s:%s', p.kind, p.ref);
         end
-        fprintf('%-20s %-12s %-10s %s\n', p.name, label, p.commit(1:min(8, end)), p.source);
+        fprintf('%-20s %-16s %-10s %s\n', p.name, label, p.commit(1:min(8, end)), p.source);
     end
 end
 

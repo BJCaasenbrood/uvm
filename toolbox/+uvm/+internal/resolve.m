@@ -35,7 +35,7 @@ function lock = resolve(project, previous, upgrade)
             if ~isempty(current) && strcmp(current.commit, pkg.commit)
                 pkg = current;
             else
-                pkg = loadPackage(pkg, ctx);
+                pkg = loadPackage(pkg, reqs(name{1}), ctx);
                 changed = true;
             end
             next(name{1}) = pkg;
@@ -105,8 +105,13 @@ function pkg = choose(name, reqs, ctx)
         pkg = pick(name, url, mirrorDir, reqs, []);
     end
     if isempty(pkg)
-        error('uvm:noVersion', 'No version of "%s" satisfies all requirements:\n%s', ...
-            name, describe(reqs));
+        hint = '';
+        if all(strcmp({reqs.kind}, 'semver')) && isempty(uvm.internal.listTags(mirrorDir))
+            hint = sprintf(['\n%s has no version tags. Depend on a branch instead, e.g. ' ...
+                '"uvm add %s --branch main", or give its registry entry a "branch".'], url, url);
+        end
+        error('uvm:noVersion', 'No version of "%s" satisfies all requirements:\n%s%s', ...
+            name, describe(reqs), hint);
     end
 end
 
@@ -185,8 +190,11 @@ function pkg = pick(name, url, mirrorDir, reqs, pref)
     pkg = makePackage(name, sprintf('%d.%d.%d', best.version), url, 'semver', best.tag, best.commit);
 end
 
-function pkg = loadPackage(pkg, ctx)
+function pkg = loadPackage(pkg, reqs, ctx)
 %LOADPACKAGE  Fill in what the package's own uvm.json says at the chosen commit.
+%   For a package without uvm.json, or whose uvm.json leaves out "paths" or
+%   "dependencies", those come from its requirement or registry entry; the
+%   default is the package root and no dependencies.
     mirrorDir = uvm.internal.mirror(pkg.source, ctx.fetched, false);
     [text, status] = uvm.internal.git('--git-dir', mirrorDir, 'show', [pkg.commit ':uvm.json']);
     raw = struct();
@@ -203,15 +211,24 @@ function pkg = loadPackage(pkg, ctx)
         pkg.version = m.version;
     end
     pkg.paths = m.paths;
+    given = reqs(~cellfun(@isempty, {reqs.paths}));
+    if ~isfield(raw, 'paths') && ~isempty(given)
+        pkg.paths = given(1).paths;
+    end
     pkg.toolboxes = m.toolboxes;
     pkg.matlab = m.matlab;
-    pkg.requires = normalizeDeps(m.dependencies, pkg.name, ctx, '');
+    deps = m.dependencies;
+    given = reqs(~cellfun(@(d) isempty(fieldnames(d)), {reqs.deps}));
+    if ~isfield(raw, 'dependencies') && ~isempty(given)
+        deps = given(1).deps;
+    end
+    pkg.requires = normalizeDeps(deps, pkg.name, ctx, '');
     pkg.dependencies = {pkg.requires.name};
 end
 
 function reqs = normalizeDeps(deps, from, ctx, baseDir)
 %NORMALIZEDEPS  Requirement structs for a manifest's "dependencies" object.
-    reqs = repmat(makeReq('', '', '', '', '', ''), 0, 1);
+    reqs = repmat(makeReq('', '', '', '', '', '', {}, struct()), 0, 1);
     names = fieldnames(deps);
     for i = 1:numel(names)
         reqs(end + 1, 1) = normalizeDep(names{i}, deps.(names{i}), from, ctx, baseDir); %#ok<AGROW>
@@ -220,7 +237,18 @@ end
 
 function req = normalizeDep(name, spec, from, ctx, baseDir)
     if ischar(spec) || isstring(spec)
-        req = makeReq(name, registryLookup(name, from, ctx), 'semver', char(spec), '', from);
+        entry = registryLookup(name, from, ctx);
+        if isempty(entry.branch)
+            req = makeReq(name, entry.url, 'semver', char(spec), '', from, entry.paths, entry.dependencies);
+            return
+        end
+        % The registry says this package has no versions: follow its branch.
+        if ~any(strcmp(strtrim(char(spec)), {'', '*'}))
+            warning('uvm:uncheckedConstraint', ...
+                '"%s" has no versions (the registry follows branch %s); ignoring "%s" from %s.', ...
+                name, entry.branch, char(spec), from);
+        end
+        req = makeReq(name, entry.url, 'branch', '', entry.branch, from, entry.paths, entry.dependencies);
         return
     end
     if ~isstruct(spec) || ~isfield(spec, 'git')
@@ -231,19 +259,21 @@ function req = normalizeDep(name, spec, from, ctx, baseDir)
     if ~isempty(baseDir)
         url = uvm.internal.absoluteSource(url, baseDir);
     end
+    paths = uvm.internal.toCellstr(uvm.internal.fieldOr(spec, 'paths', {}));
+    deps = dependencyObject(uvm.internal.fieldOr(spec, 'dependencies', struct()), name, from);
     kinds = intersect({'tag', 'branch', 'rev'}, fieldnames(spec), 'stable');
     if numel(kinds) > 1
         error('uvm:badManifest', 'Dependency "%s" of %s may set only one of tag, branch and rev.', name, from);
     end
     if isempty(kinds)
-        req = makeReq(name, url, 'semver', char(uvm.internal.fieldOr(spec, 'version', '*')), '', from);
+        req = makeReq(name, url, 'semver', char(uvm.internal.fieldOr(spec, 'version', '*')), '', from, paths, deps);
     else
-        req = makeReq(name, url, kinds{1}, '', char(spec.(kinds{1})), from);
+        req = makeReq(name, url, kinds{1}, '', char(spec.(kinds{1})), from, paths, deps);
     end
 end
 
-function url = registryLookup(name, from, ctx)
-%REGISTRYLOOKUP  Git URL of NAME from the first registry that lists it.
+function entry = registryLookup(name, from, ctx)
+%REGISTRYLOOKUP  Registry entry (url, branch, paths) of NAME from the first registry listing it.
 %   Registries are read from their local mirrors first and only fetched when
 %   the name is missing or an upgrade was requested.
     loadIndex(ctx, ctx.upgrade);
@@ -258,7 +288,7 @@ function url = registryLookup(name, from, ctx)
         error('uvm:unknownPackage', '"%s" (needed by %s) is not in any registry (%s).', ...
             name, from, strjoin({ctx.registries.name}, ', '));
     end
-    url = ctx.index(name);
+    entry = ctx.index(name);
 end
 
 function loadIndex(ctx, fetch)
@@ -279,12 +309,8 @@ function loadIndex(ctx, fetch)
         end
         packages = uvm.internal.fieldOr(jsondecode(text), 'packages', struct());
         for f = fieldnames(packages)'
-            entry = packages.(f{1});
-            if isstruct(entry)
-                entry = entry.url;
-            end
             if ~found.isKey(f{1})
-                found(f{1}) = char(entry);
+                found(f{1}) = registryEntry(packages.(f{1}), f{1}, r.name);
             end
         end
     end
@@ -300,15 +326,45 @@ function loadIndex(ctx, fetch)
     ctx.index(['?' state]) = true;
 end
 
-function req = makeReq(name, url, kind, constraint, ref, from)
+function entry = registryEntry(raw, name, registry)
+%REGISTRYENTRY  Normalize an index.json entry: a URL string, or an object
+%   with "url" and optionally "branch" (for repositories without version
+%   tags), and "paths" and "dependencies" (for repositories without their
+%   own uvm.json).
+    if ischar(raw) || isstring(raw)
+        raw = struct('url', char(raw));
+    end
+    if ~isstruct(raw) || ~isfield(raw, 'url')
+        error('uvm:badRegistry', 'Entry "%s" in registry "%s" needs a "url".', name, registry);
+    end
+    entry = struct('url', char(raw.url), ...
+        'branch', char(uvm.internal.fieldOr(raw, 'branch', '')), ...
+        'paths', {uvm.internal.toCellstr(uvm.internal.fieldOr(raw, 'paths', {}))}, ...
+        'dependencies', dependencyObject(uvm.internal.fieldOr(raw, 'dependencies', struct()), name, registry));
+end
+
+function deps = dependencyObject(deps, name, where)
+%DEPENDENCYOBJECT  Validate a "dependencies" object given outside a package's uvm.json.
+    if isempty(deps)
+        deps = struct();
+    end
+    if ~isstruct(deps) || ~isscalar(deps)
+        error('uvm:badManifest', '"dependencies" of "%s" in %s must be an object.', name, where);
+    end
+end
+
+function req = makeReq(name, url, kind, constraint, ref, from, paths, deps)
+%MAKEREQ  One requirement. PATHS and DEPS are the folders and dependencies
+%   to use when the package's own uvm.json does not give them ({} means the
+%   package root, struct() means no dependencies).
     req = struct('name', name, 'url', url, 'kind', kind, 'constraint', constraint, ...
-        'ref', ref, 'from', from);
+        'ref', ref, 'from', from, 'paths', {paths}, 'deps', deps);
 end
 
 function pkg = makePackage(name, version, source, kind, ref, commit)
     pkg = struct('name', name, 'version', version, 'source', source, 'kind', kind, ...
         'ref', ref, 'commit', commit, 'paths', {{}}, 'toolboxes', {{}}, 'matlab', '', ...
-        'dependencies', {{}}, 'requires', repmat(makeReq('', '', '', '', '', ''), 0, 1));
+        'dependencies', {{}}, 'requires', repmat(makeReq('', '', '', '', '', '', {}, struct()), 0, 1));
 end
 
 function text = describe(reqs)

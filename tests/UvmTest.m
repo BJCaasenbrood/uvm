@@ -59,13 +59,26 @@ classdef UvmTest < matlab.unittest.TestCase
             commitAll(clash);
             gitIn(clash, 'tag', 'v1.0.0');
 
+            % Like many third-party libraries: no uvm.json, no tags, code in subfolders.
+            nested = tc.newRepo('nested');
+            mkdir(fullfile(nested, 'code', 'deep'));
+            mkdir(fullfile(nested, 'code', '.hidden'));
+            writeFile(fullfile(nested, 'code', 'nested_top.m'), sprintf('function s = nested_top()\ns = ''top'';\nend\n'));
+            writeFile(fullfile(nested, 'code', 'deep', 'nested_deep.m'), sprintf('function s = nested_deep()\ns = ''deep'';\nend\n'));
+            writeFile(fullfile(nested, 'code', '.hidden', 'nested_hidden.m'), sprintf('function s = nested_hidden()\ns = ''hidden'';\nend\n'));
+            commitAll(nested);
+
             reg = tc.newRepo('registry');
             index = struct('packages', struct( ...
-                'lib_a', struct('url', a), 'lib_b', struct('url', b), 'clash', struct('url', clash)));
+                'lib_a', struct('url', a), 'lib_b', struct('url', b), 'clash', struct('url', clash), ...
+                'nested', struct('url', nested, 'branch', 'main', 'paths', {{'code/**'}}), ...
+                'with_deps', struct('url', nested, 'branch', 'main', 'paths', {{'code'}}, ...
+                    'dependencies', struct('lib_a', '^1.0')), ...
+                'plain', nested));
             writeFile(fullfile(reg, 'index.json'), jsonencode(index));
             commitAll(reg);
 
-            tc.Repos = struct('a', a, 'b', b, 'c', c, 'clash', clash, 'registry', reg);
+            tc.Repos = struct('a', a, 'b', b, 'c', c, 'clash', clash, 'nested', nested, 'registry', reg);
         end
     end
 
@@ -273,6 +286,58 @@ classdef UvmTest < matlab.unittest.TestCase
             uvm.internal.commitFolder(second, dest);
             tc.verifyEqual(fileread(fullfile(dest, 'a.txt')), 'first');
             tc.verifyFalse(isfolder(second));
+        end
+
+        function registryBranchAndRecursivePaths(tc)
+            uvm add nested --quiet
+            tc.verifyEqual(nested_top(), 'top');
+            tc.verifyEqual(nested_deep(), 'deep');
+            tc.verifyEqual(exist('nested_hidden', 'file'), 0);
+            packages = uvm('list');
+            tc.verifyEqual(packages.kind, 'branch');
+            tc.verifyEqual(packages.ref, 'main');
+            tc.verifyEqual(packages.paths, {'code/**'});
+            m = jsondecode(fileread('uvm.json'));
+            tc.verifyEqual(m.dependencies.nested, '*');
+        end
+
+        function registryEntryWithoutBranchNeedsTags(tc)
+            % "plain" points at the same untagged repository but gives no branch.
+            tc.verifyError(@() uvm('add', 'plain', '--quiet'), 'uvm:noVersion');
+        end
+
+        function versionConstraintOnBranchPackageWarns(tc)
+            tc.verifyWarning(@() uvm('add', 'nested@^1.0', '--quiet'), 'uvm:uncheckedConstraint');
+            tc.verifyEqual(nested_top(), 'top');
+        end
+
+        function registryEntryDependencies(tc)
+            % The repository has no uvm.json; its registry entry supplies the dependencies.
+            uvm add with_deps --quiet
+            packages = uvm('list');
+            tc.verifyEqual({packages.name}, {'lib_a', 'with_deps'});
+            tc.verifyEqual(packages(1).version, '1.1.0');
+            tc.verifyEqual(packages(2).dependencies, {'lib_a'});
+            tc.verifyEqual(nested_top(), 'top');
+            tc.verifyEqual(lib_a_version(), '1.1.0');
+        end
+
+        function gitDependencyWithDependencies(tc)
+            m = jsondecode(fileread('uvm.json'));
+            m.dependencies.nested = struct('git', tc.Repos.nested, 'branch', 'main', ...
+                'dependencies', struct('lib_a', '~1.0'));
+            uvm.internal.writeManifest('uvm.json', m);
+            uvm sync --quiet
+            tc.verifyEqual(lib_a_version(), '1.0.0');
+        end
+
+        function gitDependencyWithPaths(tc)
+            m = jsondecode(fileread('uvm.json'));
+            m.dependencies.nested = struct('git', tc.Repos.nested, 'branch', 'main', 'paths', {{'code'}});
+            uvm.internal.writeManifest('uvm.json', m);
+            uvm sync --quiet
+            tc.verifyEqual(nested_top(), 'top');
+            tc.verifyEqual(exist('nested_deep', 'file'), 0);
         end
 
         function unknownPackage(tc)

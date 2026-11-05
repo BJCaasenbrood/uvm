@@ -1,0 +1,126 @@
+{
+  "description": "Example uvm registry of open-source MATLAB libraries on GitHub. uvm reads url, branch and paths; every other field is documentation.",
+  "packages": {
+    "export_fig": {
+      "url": "https://github.com/altmany/export_fig.git",
+      "description": "Publication-quality figure export to PDF, EPS, PNG and more, with cropping and anti-aliasing.",
+      "category": "plotting",
+      "license": "BSD-3-Clause"
+    },
+    "fastvis": {
+      "url": "https://github.com/fr0nkk/FastVisualization.git",
+      "paths": ["fastvis", "utils", "utils/java", "obj"],
+      "dependencies": { "matogl": "^3.1.2" },
+      "description": "Fast OpenGL viewer for 2D/3D point clouds, meshes, lines, surfaces, images and text (fvFigure, fvPointcloud, fvMesh, ...).",
+      "category": "plotting",
+      "license": "GPL-3.0"
+    },
+    "matogl": {
+      "url": "https://github.com/fr0nkk/matogl.git",
+      "paths": ["gl", "utils", "utils/java", "examples"],
+      "description": "Direct access to the OpenGL pipeline from MATLAB through its bundled JOGL; no MEX or compiler needed.",
+      "category": "plotting",
+      "license": "MIT"
+    },
+    "violinplot": {
+      "url": "https://github.com/bastibe/Violinplot-Matlab.git",
+      "description": "Violin plots with kernel density, box plots and individual data points.",
+      "category": "plotting",
+      "license": "BSD-3-Clause"
+    },
+    "gramm": {
+      "url": "https://github.com/piermorel/gramm.git",
+      "paths": ["gramm"],
+      "description": "Grammar-of-graphics plotting, similar to ggplot2.",
+      "category": "plotting",
+      "license": "MIT"
+    },
+    "matlab2tikz": {
+      "url": "https://github.com/matlab2tikz/matlab2tikz.git",
+      "paths": ["src"],
+      "description": "Convert figures to TikZ/PGFPlots for LaTeX.",
+      "category": "plotting",
+      "license": "BSD-2-Clause"
+    },
+    "shadederrorbar": {
+      "url": "https://github.com/raacampbell/shadedErrorBar.git",
+      "branch": "master",
+      "description": "Line plots with a shaded error band.",
+      "category": "plotting",
+      "license": "LGPL-3.0"
+    },
+    "brewermap": {
+      "url": "https://github.com/DrosteEffect/BrewerMap.git",
+      "branch": "master",
+      "description": "ColorBrewer colormaps.",
+      "category": "colormaps",
+      "license": "Apache-2.0"
+    },
+    "cmocean": {
+      "url": "https://github.com/chadagreene/cmocean.git",
+      "branch": "main",
+      "description": "Perceptually uniform oceanographic colormaps.",
+      "category": "colormaps",
+      "license": "MIT"
+    },
+    "chebfun": {
+      "url": "https://github.com/chebfun/chebfun.git",
+      "description": "Numerical computing with functions: rootfinding, integration, ODEs and PDEs to machine precision.",
+      "category": "numerics",
+      "license": "BSD-style (see LICENSE.txt)"
+    },
+    "spot": {
+      "url": "https://github.com/mpf/spot.git",
+      "description": "Linear operators that behave like matrices (FFT, wavelets, convolution) for large-scale numerical methods.",
+      "category": "numerics",
+      "license": "GPL-3.0"
+    },
+    "spatialmath": {
+      "url": "https://github.com/petercorke/spatialmath-matlab.git",
+      "branch": "master",
+      "description": "Rotations, poses, quaternions and twists in 2D and 3D.",
+      "category": "robotics",
+      "license": "MIT"
+    },
+    "optimtraj": {
+      "url": "https://github.com/MatthewPeterKelly/OptimTraj.git",
+      "description": "Trajectory optimization with direct collocation, multiple shooting and orthogonal collocation.",
+      "category": "optimization",
+      "license": "MIT"
+    },
+    "manopt": {
+      "url": "https://github.com/NicolasBoumal/manopt.git",
+      "branch": "master",
+      "paths": ["manopt/**"],
+      "description": "Optimization on manifolds.",
+      "category": "optimization",
+      "license": "GPL-3.0 (see LICENSE.txt)"
+    },
+    "yalmip": {
+      "url": "https://github.com/yalmip/YALMIP.git",
+      "branch": "develop",
+      "paths": ["**"],
+      "description": "Modeling language for optimization problems; needs a solver for most problem classes.",
+      "category": "optimization",
+      "license": "see LICENSE"
+    },
+    "jsonlab": {
+      "url": "https://github.com/NeuroJSON/jsonlab.git",
+      "description": "Fast JSON, binary JSON (BJData/UBJSON) and MessagePack encoding and decoding.",
+      "category": "data",
+      "license": "BSD-3-Clause"
+    },
+    "yaml": {
+      "url": "https://github.com/MartinKoch123/yaml.git",
+      "description": "Read and write YAML files (yaml.load, yaml.dump).",
+      "category": "data",
+      "license": "MIT"
+    },
+    "progressbar": {
+      "url": "https://github.com/JAAdrian/MatlabProgressBar.git",
+      "description": "Text progress bar for loops and parfor, with time estimates.",
+      "category": "utilities",
+      "license": "BSD-3-Clause"
+    }
+  }
+}

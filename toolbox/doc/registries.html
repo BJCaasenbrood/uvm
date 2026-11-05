@@ -33,6 +33,41 @@ An entry is either an object with a <code>url</code> or just the URL as a string
 each package's own repository, so releasing a new version never requires touching the
 registry.</p>
 
+<h2 id="third-party">Listing third-party libraries</h2>
+<p>Many existing MATLAB libraries have no <code>uvm.json</code>, keep their code in
+subfolders, or never tag versions. Two optional fields in the entry make them work
+anyway:</p>
+<table>
+<tr><th>Field</th><th>Meaning</th></tr>
+<tr><td><code>branch</code></td>
+    <td>The repository has no version tags: follow this branch instead. The commit is
+    locked like any other, and moves on <code>--upgrade</code>. Version constraints on
+    such a package are ignored with a <code>uvm:uncheckedConstraint</code> warning.</td></tr>
+<tr><td><code>paths</code></td>
+    <td>Folders to put on the path, relative to the repository root. Used only when the
+    package has no <code>"paths"</code> in a <code>uvm.json</code> of its own.
+    <code>"folder/**"</code> adds the folder and all its subfolders; <code>"**"</code>
+    does that for the whole repository.</td></tr>
+<tr><td><code>dependencies</code></td>
+    <td>What the package needs, in the same form as in <code>uvm.json</code>, e.g.
+    <code>{"matogl": "^3.1.2"}</code>. Used only when the package has no
+    <code>"dependencies"</code> in a <code>uvm.json</code> of its own.</td></tr>
+</table>
+<pre><code>{
+  "packages": {
+    "gramm":   { "url": "https://github.com/piermorel/gramm.git", "paths": ["gramm"] },
+    "cmocean": { "url": "https://github.com/chadagreene/cmocean.git", "branch": "main" },
+    "manopt":  { "url": "https://github.com/NicolasBoumal/manopt.git",
+                 "branch": "master", "paths": ["manopt/**"] },
+    "fastvis": { "url": "https://github.com/fr0nkk/FastVisualization.git",
+                 "paths": ["fastvis", "utils", "utils/java", "obj"],
+                 "dependencies": { "matogl": "^3.1.2" } }
+  }
+}</code></pre>
+<p>Other fields, such as a <code>description</code>, are ignored, so you can use them to
+document the registry. The uvm repository has a complete example in
+<code>examples/registry/index.json</code>.</p>
+
 <h2>Use a registry</h2>
 <p>Per machine:</p>
 <pre><code>&gt;&gt; uvm registry add work git@git.company.local:matlab/registry.git
