@@ -301,13 +301,7 @@ function loadIndex(ctx, fetch)
     end
     found = containers.Map();
     for r = ctx.registries(:)'
-        mirrorDir = uvm.internal.mirror(r.url, ctx.fetched, fetch);
-        [text, status] = uvm.internal.git('--git-dir', mirrorDir, 'show', 'HEAD:index.json');
-        if status ~= 0
-            warning('uvm:badRegistry', 'Registry "%s" has no index.json.', r.name);
-            continue
-        end
-        packages = uvm.internal.fieldOr(jsondecode(text), 'packages', struct());
+        packages = uvm.internal.readRegistry(r, ctx.fetched, fetch);
         for f = fieldnames(packages)'
             if ~found.isKey(f{1})
                 found(f{1}) = registryEntry(packages.(f{1}), f{1}, r.name);

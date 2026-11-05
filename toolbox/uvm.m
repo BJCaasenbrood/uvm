@@ -7,6 +7,9 @@ function varargout = uvm(command, varargin)
 %     uvm add URL [--tag T | --branch B | --rev R | --version SPEC] [--name NAME]
 %                                    Add a dependency straight from a git repository
 %     uvm remove NAME                Remove a dependency
+%     uvm search QUERY [--registry] [--github] [--fex] [--limit N]
+%                                    Search registries, GitHub and the File Exchange;
+%                                    R = uvm("search", QUERY) returns the results
 %     uvm lock [--upgrade]           Resolve dependencies and write uvm.lock
 %     uvm sync [--upgrade | --frozen]  Lock if needed, install, and activate the project
 %     uvm list                       Show locked packages; P = uvm("list") returns them
@@ -61,6 +64,11 @@ function varargout = uvm(command, varargin)
             cmdAdd(args);
         case 'remove'
             cmdRemove(args);
+        case 'search'
+            results = cmdSearch(args, nargout > 0 || quiet);
+            if nargout > 0
+                varargout{1} = results;
+            end
         case 'lock'
             opts = uvm.internal.parseArgs(args, {'--upgrade'}, {});
             uvm.internal.lockProject(uvm.internal.loadProject(pwd), opts.upgrade, true, false);
@@ -259,6 +267,78 @@ function cmdRemove(args)
     uvm.internal.writeManifest(project.manifestFile, raw);
     uvm.internal.syncProject(uvm.internal.loadProject(project.root), false, false);
     uvm.internal.say('Removed %s', name);
+end
+
+function results = cmdSearch(args, returnOnly)
+    [opts, positional] = uvm.internal.parseArgs(args, {'--registry', '--github', '--fex'}, {'--limit'});
+    query = strtrim(strjoin(positional, ' '));
+    if isempty(query)
+        error('uvm:badArgs', 'Usage: uvm search QUERY [--registry] [--github] [--fex] [--limit N]');
+    end
+    sources = {'registry', 'github', 'fex'};
+    chosen = sources([opts.registry, opts.github, opts.fex]);
+    if isempty(chosen)
+        chosen = sources;
+    end
+    limit = 10;
+    if ~isempty(opts.limit)
+        limit = str2double(opts.limit);
+        if ~(isscalar(limit) && limit >= 1 && limit == round(limit))
+            error('uvm:badArgs', '--limit must be a positive whole number.');
+        end
+    end
+
+    % Registries of the project here (if any) come first, as when resolving.
+    registries = uvm.internal.config().registries;
+    root = uvm.internal.findRoot(pwd);
+    if ~isempty(root)
+        project = uvm.internal.loadProject(root);
+        registries = [project.manifest.registries; registries];
+    end
+    if any(strcmp(chosen, 'registry')) && isempty(registries) && ~returnOnly
+        fprintf('No registries configured; add one with "uvm registry add NAME URL".\n');
+    end
+
+    [results, failed] = uvm.internal.search(query, chosen, limit, registries);
+    if returnOnly
+        return
+    end
+    titles = struct('registry', 'Registries', 'github', 'GitHub (MATLAB repositories)', ...
+        'fex', 'File Exchange');
+    for s = chosen
+        fprintf('\n%s\n', titles.(s{1}));
+        found = results(strcmp({results.source}, s{1}));
+        if any(strcmp(failed, s{1}))
+            fprintf('  unavailable (see the warning above)\n');
+        elseif isempty(found)
+            fprintf('  no matches\n');
+        end
+        for r = found(:)'
+            header = r.name;
+            if ~isnan(r.stars)
+                header = sprintf('%s  (%d stars)', header, r.stars);
+            end
+            if ~isempty(r.note)
+                header = sprintf('%s  [%s]', header, r.note);
+            end
+            fprintf('  %s\n', header);
+            if ~isempty(r.description)
+                fprintf('      %s\n', shorten(r.description, 90));
+            end
+            if isempty(r.add)
+                fprintf('      %s  (not installable with uvm yet)\n', r.url);
+            else
+                fprintf('      %s\n', r.add);
+            end
+        end
+    end
+    fprintf('\n');
+end
+
+function s = shorten(s, width)
+    if numel(s) > width
+        s = [s(1:width - 3) '...'];
+    end
 end
 
 function packages = cmdList(returnOnly)

@@ -50,6 +50,26 @@ left as they were.</p>
 <p>Remove a direct dependency and sync. Packages that were only needed by it disappear
 from the lock.</p>
 
+<h3 id="search">uvm search</h3>
+<pre><code>uvm search QUERY
+uvm search QUERY --registry | --github | --fex
+uvm search QUERY --limit N
+results = uvm("search", QUERY)</code></pre>
+<p>Look for packages in three places: your <a href="registries.html">registries</a>
+(names, descriptions and categories; every word must match), GitHub (MATLAB repositories,
+best name match first, then by stars), and the MATLAB Central File Exchange. Give one or
+more of <code>--registry</code>, <code>--github</code> and <code>--fex</code> to search
+only those; <code>--limit</code> caps the results per source (default 10). Each result
+shows the command that adds it; GitHub results that a registry already lists say so.</p>
+<p>A source that cannot be reached gives a <code>uvm:searchFailed</code> warning and the
+others are still searched. GitHub allows about 10 anonymous searches per minute; set the
+<code>GITHUB_TOKEN</code> environment variable to a personal access token to raise that.
+File Exchange entries cannot be installed with uvm yet, unless they are also on GitHub.
+Searching never changes your project.</p>
+<p>With an output argument, returns a struct array with fields <code>source</code>,
+<code>name</code>, <code>url</code>, <code>description</code>, <code>stars</code>,
+<code>note</code> and <code>add</code>.</p>
+
 <h3 id="lock">uvm lock</h3>
 <pre><code>uvm lock
 uvm lock --upgrade</code></pre>

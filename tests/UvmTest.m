@@ -71,7 +71,8 @@ classdef UvmTest < matlab.unittest.TestCase
             reg = tc.newRepo('registry');
             index = struct('packages', struct( ...
                 'lib_a', struct('url', a), 'lib_b', struct('url', b), 'clash', struct('url', clash), ...
-                'nested', struct('url', nested, 'branch', 'main', 'paths', {{'code/**'}}), ...
+                'nested', struct('url', nested, 'branch', 'main', 'paths', {{'code/**'}}, ...
+                    'description', 'Deeply organized example code'), ...
                 'with_deps', struct('url', nested, 'branch', 'main', 'paths', {{'code'}}, ...
                     'dependencies', struct('lib_a', '^1.0')), ...
                 'plain', nested));
@@ -338,6 +339,52 @@ classdef UvmTest < matlab.unittest.TestCase
             uvm sync --quiet
             tc.verifyEqual(nested_top(), 'top');
             tc.verifyEqual(exist('nested_deep', 'file'), 0);
+        end
+
+        function searchRegistries(tc)
+            results = uvm('search', 'nested', '--registry');
+            tc.verifyEqual(results(1).name, 'nested');
+            tc.verifyEqual(results(1).add, 'uvm add nested');
+            tc.verifyEqual(results(1).note, 'registry "test"');
+
+            % Descriptions are searched too, and every word has to match.
+            byDescription = uvm('search', 'organized', 'example', '--registry');
+            tc.verifyEqual({byDescription.name}, {'nested'});
+            tc.verifyEmpty(uvm('search', 'organized', 'zebra', '--registry'));
+            tc.verifyError(@() uvm('search'), 'uvm:badArgs');
+        end
+
+        function parseGithubSearch(tc)
+            items = struct('full_name', {'someone/BrewerMap-fork', 'DrosteEffect/BrewerMap'}, ...
+                'clone_url', {'https://github.com/someone/BrewerMap-fork.git', 'https://github.com/DrosteEffect/BrewerMap.git'}, ...
+                'stargazers_count', {500, 138}, ...
+                'description', {[], 'ColorBrewer   colormaps'});
+            results = uvm.internal.parseSearchResults('github', struct('items', items), 'brewermap');
+            % The exact name match comes first, even with fewer stars.
+            tc.verifyEqual({results.name}, {'DrosteEffect/BrewerMap', 'someone/BrewerMap-fork'});
+            tc.verifyEqual(results(1).add, 'uvm add https://github.com/DrosteEffect/BrewerMap.git');
+            tc.verifyEqual(results(1).description, 'ColorBrewer colormaps');
+            tc.verifyEqual(results(2).description, '');
+            tc.verifyEqual(results(1).stars, 138);
+        end
+
+        function parseFileExchangeSearch(tc)
+            items = struct('title', {'export_fig', 'Other'}, ...
+                'url', {'https://www.mathworks.com/matlabcentral/fileexchange/23629-export_fig', 'https://example.com'});
+            results = uvm.internal.parseSearchResults('fex', struct('items', items), 'export_fig');
+            tc.verifyEqual({results.name}, {'export_fig', 'Other'});
+            tc.verifyEmpty(results(1).add);
+            tc.verifyTrue(isnan(results(1).stars));
+            tc.verifyEmpty(uvm.internal.parseSearchResults('fex', struct('items', []), 'x'));
+        end
+
+        function searchGithubLive(tc)
+            lastwarn('');
+            results = uvm('search', 'export_fig', '--github', '--limit', '5');
+            [~, id] = lastwarn;
+            tc.assumeNotEqual(id, 'uvm:searchFailed', 'GitHub is not reachable or rate-limited.');
+            tc.verifyLessThanOrEqual(numel(results), 5);
+            tc.verifyTrue(any(strcmp({results.name}, 'altmany/export_fig')));
         end
 
         function unknownPackage(tc)
