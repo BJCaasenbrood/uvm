@@ -28,6 +28,8 @@ classdef UvmTest < matlab.unittest.TestCase
             tc.addTeardown(@() rmdir(tc.Fixtures, 's'));
 
             a = tc.newRepo('lib_a');
+            writeFile(fullfile(a, 'LICENSE'), sprintf(['MIT License\n\nPermission is hereby granted, ' ...
+                'free of charge, to any person obtaining a copy of this software...\n']));
             for v = {'1.0.0', '1.1.0', '2.0.0'}
                 writeFile(fullfile(a, 'lib_a_version.m'), ...
                     sprintf('function v = lib_a_version()\nv = ''%s'';\nend\n', v{1}));
@@ -66,6 +68,7 @@ classdef UvmTest < matlab.unittest.TestCase
             writeFile(fullfile(nested, 'code', 'nested_top.m'), sprintf('function s = nested_top()\ns = ''top'';\nend\n'));
             writeFile(fullfile(nested, 'code', 'deep', 'nested_deep.m'), sprintf('function s = nested_deep()\ns = ''deep'';\nend\n'));
             writeFile(fullfile(nested, 'code', '.hidden', 'nested_hidden.m'), sprintf('function s = nested_hidden()\ns = ''hidden'';\nend\n'));
+            writeFile(fullfile(nested, 'COPYING'), sprintf('GNU GENERAL PUBLIC LICENSE\nVersion 3, 29 June 2007\n'));
             commitAll(nested);
 
             reg = tc.newRepo('registry');
@@ -387,6 +390,76 @@ classdef UvmTest < matlab.unittest.TestCase
             tc.verifyTrue(any(strcmp({results.name}, 'altmany/export_fig')));
         end
 
+        function buildZipIsSelfContained(tc)
+            uvm add lib_b --quiet
+            writeFile('proj_fn.m', sprintf('function s = proj_fn()\ns = lib_b_hello();\nend\n'));
+            artifact = tc.verifyWarning(@() uvm('build', '--quiet'), 'uvm:noLicense');   % lib_b has none
+            tc.verifyEqual(artifact, fullfile(tc.Project, 'dist', 'project-0.1.0.zip'));
+
+            bundle = unzipBundle(tc, artifact, 'project-0.1.0');
+            for f = {'setup_project.m', 'THIRD_PARTY_LICENSES.md', 'proj_fn.m', 'uvm.json', 'uvm.lock', ...
+                    fullfile('uvm_packages', 'lib_a', 'lib_a_version.m'), fullfile('uvm_packages', 'lib_b', 'lib_b_hello.m')}
+                tc.verifyTrue(isfile(fullfile(bundle, f{1})), f{1});
+            end
+            tc.verifyFalse(isfolder(fullfile(bundle, '.uvm')));
+            report = fileread(fullfile(bundle, 'THIRD_PARTY_LICENSES.md'));
+            tc.verifyTrue(contains(report, '| lib_a | 1.1.0 |') && contains(report, 'MIT (LICENSE)'));
+            tc.verifyTrue(contains(report, '| lib_b | 0.2.0 |') && contains(report, 'none found'));
+
+            % The bundle works without uvm.
+            uvm deactivate --quiet
+            tc.verifyEqual(exist('lib_b_hello', 'file'), 0);
+            savedPath = path;
+            tc.addTeardown(@() path(savedPath));
+            addpath(bundle);
+            setup_project();
+            tc.verifyEqual(proj_fn(), 'b uses 1.1.0');
+            setup_project('remove');
+            tc.verifyEqual(exist('lib_b_hello', 'file'), 0);
+
+            % A second build does not include the first one.
+            artifact = tc.verifyWarning(@() uvm('build', '--quiet'), 'uvm:noLicense');
+            bundle = unzipBundle(tc, artifact, 'project-0.1.0');
+            tc.verifyFalse(isfolder(fullfile(bundle, 'dist')));
+        end
+
+        function buildRespectsGitignore(tc)
+            uvm add lib_a --quiet
+            uvm.internal.git('init', '--quiet', tc.Project);
+            writeFile('.gitignore', sprintf('secret.txt\n'));
+            writeFile('secret.txt', 'password');
+            writeFile('notes.txt', 'keep me');
+            artifact = uvm('build', '--quiet');
+            bundle = unzipBundle(tc, artifact, 'project-0.1.0');
+            tc.verifyTrue(isfile(fullfile(bundle, 'notes.txt')));
+            tc.verifyTrue(isfile(fullfile(bundle, '.gitignore')));
+            tc.verifyFalse(isfile(fullfile(bundle, 'secret.txt')));
+        end
+
+        function buildWarnsAboutCopyleft(tc)
+            uvm add nested --quiet
+            tc.verifyWarning(@() uvm('build', '--output', 'out', '--quiet'), 'uvm:copyleft');
+            tc.verifyTrue(isfile(fullfile(tc.Project, 'out', 'project-0.1.0.zip')));
+        end
+
+        function buildToolbox(tc)
+            uvm add lib_a --quiet
+            m = jsondecode(fileread('uvm.json'));
+            m.description = 'Example toolbox built by the tests';
+            uvm.internal.writeManifest('uvm.json', m);
+            uvm sync --quiet
+
+            artifact = uvm('build', '--toolbox', '--quiet');
+            tc.verifyEqual(artifact, fullfile(tc.Project, 'dist', 'project-0.1.0.mltbx'));
+            tc.verifyEqual(char(matlab.addons.toolbox.toolboxVersion(artifact)), '0.1.0');
+            tc.verifyTrue(any(contains(zipEntries(tc, artifact), 'uvm_packages/lib_a/lib_a_version.m')));
+
+            artifact = uvm('build', '--toolbox', '--no-deps', '--output', 'nodeps', '--quiet');
+            entries = zipEntries(tc, artifact);
+            tc.verifyFalse(any(contains(entries, 'uvm_packages/')));
+            tc.verifyTrue(any(contains(entries, 'THIRD_PARTY_LICENSES.md')));
+        end
+
         function unknownPackage(tc)
             tc.verifyError(@() uvm('add', 'nope', '--quiet'), 'uvm:unknownPackage');
         end
@@ -463,6 +536,20 @@ end
 function commitAll(repo)
     gitIn(repo, 'add', '-A');
     gitIn(repo, 'commit', '--quiet', '-m', 'update');
+end
+
+function bundle = unzipBundle(tc, artifact, name)
+    out = tempname;
+    tc.addTeardown(@() rmdir(out, 's'));
+    unzip(artifact, out);
+    bundle = fullfile(out, name);
+end
+
+function entries = zipEntries(tc, archive)
+%ZIPENTRIES  Files inside a zip-based archive such as .mltbx, with '/' separators.
+    out = tempname;
+    tc.addTeardown(@() rmdir(out, 's'));
+    entries = strrep(unzip(archive, out), filesep, '/');
 end
 
 function closeIfOpen(proj)

@@ -16,6 +16,9 @@ function varargout = uvm(command, varargin)
 %     uvm run SCRIPT [--frozen]      Sync, then run SCRIPT in the base workspace
 %     uvm test [FOLDER] [--frozen] [--junit FILE]
 %                                    Sync, then run the tests (default: the tests folder)
+%     uvm build [--toolbox] [--no-deps] [--frozen] [--output DIR]
+%                                    Bundle the project and its packages as a zip (with a
+%                                    setup script) or a .mltbx toolbox, for people without uvm
 %     uvm activate [FOLDER]          Put the project's packages on the path
 %     uvm deactivate                 Take them off again
 %     uvm project [--remove]         Sync and activate whenever the MATLAB project opens
@@ -85,6 +88,11 @@ function varargout = uvm(command, varargin)
             end
         case 'run'
             cmdRun(args);
+        case 'build'
+            artifact = cmdBuild(args);
+            if nargout > 0
+                varargout{1} = artifact;
+            end
         case 'test'
             results = cmdTest(args);
             if nargout > 0
@@ -380,6 +388,28 @@ function cmdRun(args)
     script = uvm.internal.absoluteSource(script, pwd);
     uvm.internal.syncProject(uvm.internal.loadProject(pwd), false, opts.frozen);
     evalin('base', sprintf('run(''%s'');', strrep(script, '''', '''''')));
+end
+
+function artifact = cmdBuild(args)
+    [opts, positional] = uvm.internal.parseArgs(args, {'--toolbox', '--no-deps', '--frozen'}, {'--output'});
+    if ~isempty(positional)
+        error('uvm:badArgs', 'Usage: uvm build [--toolbox] [--no-deps] [--frozen] [--output DIR]');
+    end
+    project = uvm.internal.loadProject(pwd);
+    lock = uvm.internal.lockProject(project, false, false, opts.frozen);
+    uvm.internal.install(project, lock);
+    output = fullfile(project.root, 'dist');
+    if ~isempty(opts.output)
+        output = opts.output;
+        if ~(startsWith(output, {'/', '\'}) || ~isempty(regexp(output, '^[A-Za-z]:', 'once')))
+            output = fullfile(pwd, output);
+        end
+    end
+    format = 'zip';
+    if opts.toolbox
+        format = 'toolbox';
+    end
+    artifact = uvm.internal.build(project, lock, format, output, ~opts.no_deps);
 end
 
 function results = cmdTest(args)

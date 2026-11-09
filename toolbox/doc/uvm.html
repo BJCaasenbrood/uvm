@@ -103,6 +103,18 @@ uvm run SCRIPT --frozen</code></pre>
 <p>Sync the project in the current folder, then run <code>SCRIPT</code> in the base
 workspace.</p>
 
+<h3 id="build">uvm build</h3>
+<pre><code>uvm build
+uvm build --toolbox
+uvm build --toolbox --no-deps
+uvm build --frozen --output DIR
+file = uvm("build")</code></pre>
+<p>Bundle the project and every locked package for people without uvm: a zip with a
+<code>setup_NAME.m</code> that sets the path, or with <code>--toolbox</code> a
+<code>.mltbx</code>. Writes to <code>dist/NAME-VERSION.zip</code> or <code>.mltbx</code>
+and returns the file name. Includes <code>THIRD_PARTY_LICENSES.md</code> and warns about
+GPL-licensed or unlicensed packages. See <a href="sharing.html">Sharing Your Code</a>.</p>
+
 <h3 id="test">uvm test</h3>
 <pre><code>uvm test
 uvm test FOLDER

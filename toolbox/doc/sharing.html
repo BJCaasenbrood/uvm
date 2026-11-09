@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Sharing Your Code</title>
+<link rel="stylesheet" href="uvm.css">
+</head>
+<body>
+
+<div class="nav"><a href="index.html">uvm</a> &rsaquo; Sharing Your Code</div>
+<h1>Sharing Your Code</h1>
+
+<h2>With people who use uvm</h2>
+<p>Commit <code>uvm.json</code> and <code>uvm.lock</code> and push. Others clone the
+project and run <code>uvm sync</code> to get exactly your package versions. For reusable
+code, tag a release so others can <code>uvm add</code> it; see
+<a href="publishing.html">Publishing a Package</a>.</p>
+
+<h2>With people who don't: uvm build</h2>
+<p><code>uvm build</code> bundles your project with every package in
+<code>uvm.lock</code>, so the recipient needs neither uvm, git, nor network access.</p>
+
+<h3>A zip file</h3>
+<pre><code>&gt;&gt; uvm build
+Built /home/me/my_analysis/dist/my_analysis-0.1.0.zip (3 package(s), 4.2 MB)</code></pre>
+<p>The zip contains one folder:</p>
+<pre><code>my_analysis-0.1.0/
+  ...your project files...
+  uvm_packages/export_fig/        every locked package
+  uvm_packages/signal_utils/
+  setup_my_analysis.m             puts everything on the path
+  THIRD_PARTY_LICENSES.md         what is bundled, and under which license</code></pre>
+<p>The recipient unzips it and runs:</p>
+<pre><code>&gt;&gt; cd my_analysis-0.1.0
+&gt;&gt; setup_my_analysis             % setup_my_analysis('remove') undoes it</code></pre>
+<p>This suits colleagues, reviewers, and supplementary material for a paper.</p>
+
+<h3>A MATLAB toolbox (.mltbx)</h3>
+<pre><code>&gt;&gt; uvm build --toolbox
+&gt;&gt; uvm build --toolbox --no-deps   % only your own code</code></pre>
+<p>A <code>.mltbx</code> installs with a double click, appears in the Add-On Manager, and
+sets up the path itself. uvm fills in the toolbox details from <code>uvm.json</code>:</p>
+<table>
+<tr><th>Toolbox field</th><th>From uvm.json</th></tr>
+<tr><td>Name, version</td><td><code>name</code>, <code>version</code></td></tr>
+<tr><td>Summary, author</td><td><code>description</code>, <code>author</code> (optional fields)</td></tr>
+<tr><td>Supported releases</td><td><code>matlab</code>, e.g. <code>"&gt;=R2023a"</code></td></tr>
+<tr><td>Description</td><td>required <code>toolboxes</code>, and with <code>--no-deps</code> the packages to install separately</td></tr>
+</table>
+<p>The toolbox identifier is derived from the project name, so installing a newer build
+replaces the older one.</p>
+
+<h2>What goes in</h2>
+<ul>
+<li><b>Your files.</b> In a git repository: tracked files plus new files that are not
+ignored, so anything in <code>.gitignore</code> (data, secrets, scratch files) stays out.
+Outside git: every file except hidden ones. <code>.uvm/</code> and the output folder are
+never included.</li>
+<li><b>Packages,</b> exactly as locked, under <code>uvm_packages/</code>, with their own
+license files. Only the folders their <code>paths</code> name go on the path.</li>
+</ul>
+
+<h2>Options</h2>
+<table>
+<tr><td><code>--toolbox</code></td><td>Build a <code>.mltbx</code> instead of a zip.</td></tr>
+<tr><td><code>--no-deps</code></td><td>Leave the packages out; the license file lists what to install separately.</td></tr>
+<tr><td><code>--frozen</code></td><td>Fail if <code>uvm.lock</code> is out of date instead of updating it. Use this for release builds.</td></tr>
+<tr><td><code>--output DIR</code></td><td>Write to <code>DIR</code> instead of <code>dist/</code> in the project.</td></tr>
+</table>
+<p>Add <code>dist/</code> to your <code>.gitignore</code> so builds are not committed.</p>
+
+<h2>Licenses</h2>
+<p>Bundling code means redistributing it, so its license applies. uvm detects each
+package's license from its <code>LICENSE</code> or <code>COPYING</code> file, lists it in
+<code>THIRD_PARTY_LICENSES.md</code>, and warns when:</p>
+<ul>
+<li>a package uses a GPL-family license (<code>uvm:copyleft</code>): what you distribute
+with it must then be offered under the GPL too;</li>
+<li>a package has no license file (<code>uvm:noLicense</code>): without a license you may
+not have the right to redistribute it at all.</li>
+</ul>
+<p>Detection is a convenience, not legal advice: check the license files themselves.</p>
+
+</body>
+</html>

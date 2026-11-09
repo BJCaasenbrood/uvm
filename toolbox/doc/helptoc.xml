@@ -7,6 +7,7 @@
         <tocitem target="versions.html">Version Constraints</tocitem>
         <tocitem target="registries.html">Registries and Work Servers</tocitem>
         <tocitem target="publishing.html">Publishing a Package</tocitem>
+        <tocitem target="sharing.html">Sharing Your Code</tocitem>
         <tocitem target="ci.html">Testing and Continuous Integration</tocitem>
         <tocitem target="troubleshooting.html">Troubleshooting</tocitem>
         <tocitem target="uvm.html" image="HelpIcon.FUNCTION">uvm</tocitem>

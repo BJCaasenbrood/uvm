@@ -55,6 +55,10 @@ when your project is installed as someone else's dependency, uvm reads its
     package.</td></tr>
 <tr><td><code>dependencies</code></td><td><code>{}</code></td>
     <td>Packages this one needs; see below.</td></tr>
+<tr><td><code>description</code>, <code>author</code></td><td><code>""</code></td>
+    <td>Used as the summary and author of a <code>.mltbx</code> made by
+    <a href="sharing.html">uvm build --toolbox</a>. (<code>uvm search</code> reads the
+    <code>description</code> of registry entries instead.)</td></tr>
 <tr><td><code>registries</code></td><td><code>[]</code></td>
     <td>Registries to search before the ones in your own config, so a team project
     works without per-machine setup. See <a href="registries.html">Registries</a>.</td></tr>
